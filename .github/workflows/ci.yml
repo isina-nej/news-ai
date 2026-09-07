@@ -35,10 +35,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y default-libmysqlclient-dev pkg-config
-      - name: Create venv and install dependencies
-        run: |
-          uv venv
-          uv pip install -r pyproject.toml --extra dev cryptography structlog
+      - name: Install dependencies
+        run: uv pip install -r pyproject.toml --extra dev cryptography structlog
       - name: Ruff check
         run: uv run ruff check .
       - name: Ruff format check
