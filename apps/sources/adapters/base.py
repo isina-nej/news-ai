@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Protocol
 
 from apps.core.exceptions import DomainError
+from apps.core.redaction import sanitize_error_message
 
 # ---------------------------------------------------------------------------
 # Error hierarchy
@@ -30,8 +31,9 @@ class AdapterError(DomainError):
         is_transient: bool | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(message)
-        self.message = message
+        clean_msg = sanitize_error_message(message)
+        super().__init__(clean_msg)
+        self.message = clean_msg
         if is_transient is not None:
             self.is_transient = is_transient
         self.details = details or {}
@@ -136,6 +138,7 @@ class FetchedItem:
     published_at: datetime | None = None
     author: str = ""
     language: str = "und"
+    content_type: str | None = None
     media: dict[str, Any] = field(default_factory=dict)
     raw_payload: dict[str, Any] = field(default_factory=dict)
     source_metadata: dict[str, Any] = field(default_factory=dict)

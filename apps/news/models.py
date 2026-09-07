@@ -44,16 +44,29 @@ class SourceItem(TimeStampedModel):
         help_text="Platform-native id (message id, post id). Null when unavailable.",
     )
     canonical_url = models.URLField(max_length=2048, blank=True, default="")
-    url_hash = models.CharField(max_length=64, blank=True, default="")
+    url_hash = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        default=None,
+        help_text="SHA-256 of canonical_url. NULL when URL is absent so empty URLs never collide.",
+    )
     title = models.CharField(max_length=1024, blank=True, default="")
     raw_text = models.TextField(blank=True, default="")
     normalized_text = models.TextField(blank=True, default="")
-    raw_content_hash = models.CharField(max_length=64, blank=True, default="")
+    raw_content_hash = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        default=None,
+        help_text="SHA-256 of raw_text. NULL when text is absent.",
+    )
     content_hash = models.CharField(
         max_length=64,
+        null=True,
         blank=True,
-        default="",
-        help_text="SHA-256 hash of normalized_text for exact deduplication.",
+        default=None,
+        help_text="SHA-256 hash of normalized_text for exact deduplication. NULL when absent.",
     )
     media = models.JSONField(default=dict, blank=True)
     language = models.CharField(max_length=10, default="und")
@@ -86,9 +99,15 @@ class SourceItem(TimeStampedModel):
 
     class Meta:
         constraints = [
-            # NULL external_ids stay distinct on MySQL/SQLite -> uniqueness only when present.
+            # NULLs stay distinct on MySQL 8.4 & SQLite -> uniqueness enforced when present
             models.UniqueConstraint(
                 fields=["source", "external_id"], name="uniq_item_source_external"
+            ),
+            models.UniqueConstraint(
+                fields=["source", "url_hash"], name="uniq_item_source_url_hash"
+            ),
+            models.UniqueConstraint(
+                fields=["source", "content_hash"], name="uniq_item_source_content_hash"
             ),
         ]
         indexes = [
@@ -103,21 +122,37 @@ class SourceItem(TimeStampedModel):
 
     def clean(self) -> None:
         if not self.external_id:
-            self.external_id = None  # keep NULL-distinct invariant pre-validation
+            self.external_id = None
         if self.subtopic and self.topic and self.subtopic.topic_id != self.topic_id:
             raise ValidationError({"subtopic": "subtopic does not belong to the selected topic."})
 
     def save(self, *args, **kwargs):
+        # 1. External ID normalization
         if not self.external_id:
             self.external_id = None
-        if not self.url_hash and self.canonical_url:
-            self.url_hash = hashlib.sha256(self.canonical_url.encode()).hexdigest()
-        if not self.raw_content_hash and self.raw_text:
-            self.raw_content_hash = hashlib.sha256(self.raw_text.encode()).hexdigest()
-        if not self.content_hash and self.normalized_text:
-            self.content_hash = hashlib.sha256(self.normalized_text.encode()).hexdigest()
-        elif not self.content_hash and self.raw_text:
-            self.content_hash = hashlib.sha256(self.raw_text.encode()).hexdigest()
+
+        # 2. Recompute URL hash (never allow stale hash on update)
+        if self.canonical_url and self.canonical_url.strip():
+            self.url_hash = hashlib.sha256(self.canonical_url.strip().encode()).hexdigest()
+        else:
+            self.url_hash = None
+
+        # 3. Recompute raw content hash
+        if self.raw_text and self.raw_text.strip():
+            self.raw_content_hash = hashlib.sha256(self.raw_text.strip().encode()).hexdigest()
+        else:
+            self.raw_content_hash = None
+
+        # 4. Recompute normalized content hash
+        target_text = (
+            self.normalized_text.strip()
+            if self.normalized_text
+            else (self.raw_text.strip() if self.raw_text else "")
+        )
+        if target_text:
+            self.content_hash = hashlib.sha256(target_text.encode()).hexdigest()
+        else:
+            self.content_hash = None
 
         self.full_clean(exclude=None, validate_unique=False)
         super().save(*args, **kwargs)

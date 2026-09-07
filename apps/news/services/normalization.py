@@ -1,12 +1,13 @@
 """Deterministic text normalization service.
 
 Preserves raw_text intact while producing a clean, normalized representation
-for deduplication and NLP. Safe for multilingual (Persian, Arabic, English) text.
+for deduplication and NLP. Strips HTML tags, cleans Persian/Arabic, collapses whitespace.
 """
 
 from __future__ import annotations
 
 import hashlib
+import html
 import re
 import unicodedata
 
@@ -19,6 +20,11 @@ CHAR_MAP = {
     ord("ك"): "ک",  # Arabic Kaf -> Persian Keheh
     ord("ۀ"): "هٔ",  # Heh with isolated yeh -> Heh + Hamza
 }
+
+# Regex to detect HTML tags
+RE_HTML_DETECT = re.compile(r"<[a-zA-Z\/][^>]*>")
+RE_HTML_BREAKS = re.compile(r"(?i)<br\s*/?>|</p>|</div>|</li>")
+RE_HTML_TAGS = re.compile(r"<[^>]+>")
 
 # Regex to remove Tatweel/Kashida (ـ)
 RE_TATWEEL = re.compile(r"ـ+")
@@ -39,16 +45,29 @@ RE_NEWLINES = re.compile(r"\r\n|\r")
 RE_MULTI_NEWLINES = re.compile(r"\n{3,}")
 
 
+def strip_html_tags(text: str) -> str:
+    """Convert HTML paragraphs/breaks to newlines and strip remaining markup."""
+    if not text or not RE_HTML_DETECT.search(text):
+        return text
+    # Convert block endings and breaks to newlines
+    converted = RE_HTML_BREAKS.sub("\n", text)
+    # Strip all remaining HTML tags
+    stripped = RE_HTML_TAGS.sub("", converted)
+    # Unescape HTML entities (&amp; -> &, &quot; -> ", etc.)
+    return html.unescape(stripped)
+
+
 class NormalizationService:
     """Service producing standardized, deterministic normalized text."""
 
     version = NORMALIZATION_VERSION
 
     def normalize(self, text: str) -> str:
-        """Produce normalized string from raw text.
+        """Produce clean normalized plain text from raw source text.
 
         Invariants:
-        - Never mutates input or alters emojis/hashtags/punctuation.
+        - Never mutates raw input or strips emojis/hashtags/punctuation.
+        - Strips HTML markup cleanly if present (e.g. from RSS descriptions).
         - Unicode NFKC normalized.
         - Persian/Arabic Yeh/Kaf safely standardized.
         - Tatweel and redundant ZWNJs cleaned.
@@ -57,32 +76,35 @@ class NormalizationService:
         if not text or not isinstance(text, str):
             return ""
 
-        # 1. Unicode NFKC normalization
-        norm = unicodedata.normalize("NFKC", text)
+        # 1. Clean HTML tags if present
+        norm = strip_html_tags(text)
 
-        # 2. Strip non-printable control characters
+        # 2. Unicode NFKC normalization
+        norm = unicodedata.normalize("NFKC", norm)
+
+        # 3. Strip non-printable control characters
         norm = RE_CONTROL_CHARS.sub("", norm)
 
-        # 3. Strip directional marks
+        # 4. Strip directional marks
         norm = RE_DIR_MARKS.sub("", norm)
 
-        # 4. Safe Persian/Arabic character translations
+        # 5. Safe Persian/Arabic character translations
         norm = norm.translate(CHAR_MAP)
 
-        # 5. Remove Tatweel (Kashida)
+        # 6. Remove Tatweel (Kashida)
         norm = RE_TATWEEL.sub("", norm)
 
-        # 6. Clean ZWNJ
+        # 7. Clean ZWNJ
         norm = RE_MULTI_ZWNJ.sub("‌", norm)
         norm = RE_ZWNJ_WHITESPACE.sub(" ", norm)
 
-        # 7. Normalize line endings to \n
+        # 8. Normalize line endings to \n
         norm = RE_NEWLINES.sub("\n", norm)
 
-        # 8. Normalize horizontal spaces (tabs, repeated spaces)
+        # 9. Normalize horizontal spaces (tabs, repeated spaces)
         norm = RE_SPACES.sub(" ", norm)
 
-        # 9. Clean up each line and collapse 3+ newlines to 2
+        # 10. Clean up each line and collapse 3+ newlines to 2
         lines = [line.strip() for line in norm.split("\n")]
         norm = "\n".join(lines)
         norm = RE_MULTI_NEWLINES.sub("\n\n", norm)

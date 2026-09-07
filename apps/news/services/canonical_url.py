@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-from urllib.parse import parse_qsl, unquote, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-# Query parameters used solely for tracking / analytics
+# Conservative tracking parameters: only well-known analytics/ad identifiers.
+# Generic parameters like 'source' and 'ref' are intentionally NOT in this global list
+# because they often carry genuine routing/article state on news and content platforms.
 DEFAULT_TRACKING_PARAMS = frozenset(
     {
         # Google Analytics / Urchin
@@ -37,32 +39,34 @@ DEFAULT_TRACKING_PARAMS = frozenset(
         # Google / General analytics
         "_ga",
         "_gl",
-        # Social / Ref
+        # Instagram
         "igshid",
-        "ref",
-        "ref_src",
-        "ref_url",
-        "source",
     }
 )
 
 
 class CanonicalURLService:
-    """Service to normalize web URLs into deterministic canonical representations."""
+    """Service to normalize web URLs into deterministic canonical representations.
 
-    def __init__(self, *, tracking_params: frozenset[str] = DEFAULT_TRACKING_PARAMS) -> None:
+    Adheres strictly to RFC 3986:
+    - Path reserved characters like %2F, %3F, %26 are NOT unquoted, preserving route semantics.
+    - Scheme and host are lowercased; default ports (:80, :443) are stripped.
+    - Fragments (#...) are removed.
+    - Global tracking params stripped; meaningful params preserved and sorted.
+    - Per-domain tracking overrides supported.
+    """
+
+    def __init__(
+        self,
+        *,
+        tracking_params: frozenset[str] = DEFAULT_TRACKING_PARAMS,
+        domain_tracking_params: dict[str, set[str]] | None = None,
+    ) -> None:
         self.tracking_params = tracking_params
+        self.domain_tracking_params = domain_tracking_params or {}
 
     def normalize(self, url: str) -> str:
-        """Produce a canonical normalized URL.
-
-        Rules:
-        - Scheme and host lowercased.
-        - Default ports (:80, :443) stripped.
-        - Fragments (#...) removed.
-        - Tracking parameters stripped; meaningful parameters kept and sorted.
-        - Trailing slash standardized (stripped unless path is root '/').
-        """
+        """Produce a canonical normalized URL."""
         if not url or not isinstance(url, str):
             return ""
 
@@ -80,16 +84,20 @@ class CanonicalURLService:
         elif scheme == "https" and netloc.endswith(":443"):
             netloc = netloc[:-4]
 
-        # Normalize path
-        path = unquote(parsed.path) or "/"
+        # Normalize path without unquoting reserved characters (%2F, %3F, %26, etc.)
+        path = parsed.path or "/"
         if len(path) > 1 and path.endswith("/"):
             path = path.rstrip("/")
 
-        # Filter query parameters
+        # Combine global tracking params with domain-specific tracking params
+        domain_extras = self.domain_tracking_params.get(netloc, set())
+        active_tracking = self.tracking_params | domain_extras
+
+        # Filter and sort query parameters
         filtered_query: list[tuple[str, str]] = []
         if parsed.query:
             for k, v in parse_qsl(parsed.query, keep_blank_values=True):
-                if k.lower() not in self.tracking_params:
+                if k.lower() not in active_tracking:
                     filtered_query.append((k, v))
             filtered_query.sort()
 

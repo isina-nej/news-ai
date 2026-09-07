@@ -4,6 +4,7 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   lint-test:
@@ -24,26 +25,32 @@ jobs:
       DATABASE_URL: mysql://newsai:newsai@127.0.0.1:3306/newsai_verify
       DJANGO_SETTINGS_MODULE: config.settings.base
       DJANGO_SECRET_KEY: ci-only-not-a-secret
-      UV_SYSTEM_PYTHON: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
-      - name: Install deps
-        run: uv pip install --system -r pyproject.toml --extra dev cryptography structlog
+          enable-cache: true
+      - name: Install system dependencies for mysqlclient
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-libmysqlclient-dev pkg-config
+      - name: Create venv and install dependencies
+        run: |
+          uv venv
+          uv pip install -r pyproject.toml --extra dev cryptography structlog
       - name: Ruff check
-        run: ruff check .
+        run: uv run ruff check .
       - name: Ruff format check
-        run: ruff format --check .
+        run: uv run ruff format --check .
       - name: Django check
-        run: python manage.py check
+        run: uv run python manage.py check
       - name: Migration consistency
-        run: python manage.py makemigrations --check --dry-run
+        run: uv run python manage.py makemigrations --check --dry-run
       - name: Migrate (MySQL 8.4)
-        run: python manage.py migrate
+        run: uv run python manage.py migrate
       - name: Pytest
-        run: pytest -q
+        run: uv run pytest -q
       - name: Secret scan (gitleaks)
         uses: gitleaks/gitleaks-action@v2
         env:

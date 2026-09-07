@@ -7,9 +7,10 @@ import time
 import uuid
 from typing import Any
 
-from django.core.cache import cache
 from django.utils import timezone
 
+from apps.core.lock import DistributedLock
+from apps.core.redaction import sanitize_error_message
 from apps.news.services.persistence import ingestion_persistence_service
 from apps.sources.adapters import (
     AdapterError,
@@ -41,8 +42,9 @@ class SourceFetchService:
         cid = correlation_id or uuid.uuid4().hex[:16]
         lock_key = f"{LOCK_PREFIX}{source_id}"
 
-        # 1. Distributed lock via Redis/Django cache to prevent overlapping fetches
-        acquired = cache.add(lock_key, cid, timeout=self.lock_timeout)
+        # 1. Atomic token-checked distributed lock to prevent overlapping fetches
+        lock = DistributedLock(lock_key, token=cid, ttl_seconds=self.lock_timeout)
+        acquired = lock.acquire()
         if not acquired:
             return {
                 "status": "skipped",
@@ -64,10 +66,11 @@ class SourceFetchService:
             if not source.enabled:
                 return {"status": "skipped", "reason": "source_disabled", "source_id": source_id}
 
-            # 3. Create FetchRun audit record
+            # 3. Create FetchRun audit record with RUNNING status
             run_record = FetchRun.objects.create(
                 source=source,
                 started_at=timezone.now(),
+                status=FetchRunStatus.RUNNING,
                 correlation_id=cid,
             )
 
@@ -150,7 +153,7 @@ class SourceFetchService:
                 run_record.finished_at = timezone.now()
                 run_record.status = FetchRunStatus.FAILED
                 run_record.error_type = type(err).__name__
-                run_record.error_message = str(err)[:1024]
+                run_record.error_message = sanitize_error_message(str(err))[:1024]
                 run_record.duration_ms = duration_ms
                 if isinstance(err, RateLimitError):
                     run_record.http_status = 429
@@ -170,14 +173,32 @@ class SourceFetchService:
                 "status": "failed",
                 "source_id": source_id,
                 "error_type": type(err).__name__,
-                "error": str(err),
+                "error": sanitize_error_message(str(err)),
                 "duration_ms": duration_ms,
                 "correlation_id": cid,
             }
 
+        except Exception as unexpected:
+            duration_ms = int((time.monotonic() - start_time) * 1000)
+            if run_record:
+                run_record.finished_at = timezone.now()
+                run_record.status = FetchRunStatus.FAILED
+                run_record.error_type = type(unexpected).__name__
+                run_record.error_message = sanitize_error_message(str(unexpected))[:1024]
+                run_record.duration_ms = duration_ms
+                run_record.save()
+
+            try:
+                source = Source.objects.get(pk=source_id)
+                source.record_fetch_failure()
+            except Source.DoesNotExist:
+                pass
+
+            raise unexpected
+
         finally:
-            # Release distributed lock
-            cache.delete(lock_key)
+            # Atomic token-checked release ensures we only release OUR lock
+            lock.release()
 
 
 source_fetch_service = SourceFetchService()

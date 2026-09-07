@@ -93,6 +93,7 @@ class Source(TimeStampedModel):
 
 
 class FetchRunStatus(models.TextChoices):
+    RUNNING = "running", "Running"
     SUCCESS = "success", "Success"
     FAILED = "failed", "Failed"
     NOT_MODIFIED = "not_modified", "Not modified (304)"
@@ -105,7 +106,7 @@ class FetchRun(models.Model):
     started_at = models.DateTimeField(default=timezone.now, db_index=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(
-        max_length=16, choices=FetchRunStatus.choices, default=FetchRunStatus.SUCCESS
+        max_length=16, choices=FetchRunStatus.choices, default=FetchRunStatus.RUNNING
     )
     http_status = models.PositiveSmallIntegerField(null=True, blank=True)
     fetched_count = models.PositiveIntegerField(default=0)

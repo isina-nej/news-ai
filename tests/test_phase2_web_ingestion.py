@@ -166,6 +166,26 @@ def test_normalization_produces_deterministic_hashes():
 # ---------------------------------------------------------------------------
 
 
+class _MockResponse:
+    def __init__(
+        self,
+        status_code: int = 200,
+        headers: dict[str, str] | None = None,
+        content: bytes = b"",
+        is_redirect: bool = False,
+    ) -> None:
+        self.status_code = status_code
+        self.headers = headers or {}
+        self.content = content
+        self.is_redirect = is_redirect
+
+    async def aiter_bytes(self):
+        yield self.content
+
+    async def aclose(self):
+        pass
+
+
 @pytest.mark.asyncio
 async def test_http_client_maps_status_codes():
     client = SafeHttpClient()
@@ -173,21 +193,20 @@ async def test_http_client_maps_status_codes():
     with patch.object(client, "get_client") as mock_get_client:
         mock_async_client = AsyncMock()
         mock_get_client.return_value = mock_async_client
+        mock_async_client.build_request.return_value = "req"
 
         # 304 Not Modified
-        mock_res_304 = AsyncMock(
-            status_code=304, is_redirect=False, headers={"etag": "abc"}, content=b""
+        mock_async_client.send.return_value = _MockResponse(
+            status_code=304, headers={"etag": "abc"}
         )
-        mock_async_client.get.return_value = mock_res_304
         with patch("apps.sources.adapters.http_client.validate_url_for_ssrf"):
             status, headers, body, _ = await client.fetch("https://example.com/feed")
             assert status == 304
 
         # 429 Rate Limit
-        mock_res_429 = AsyncMock(
-            status_code=429, is_redirect=False, headers={"retry-after": "45"}, content=b""
+        mock_async_client.send.return_value = _MockResponse(
+            status_code=429, headers={"retry-after": "45"}
         )
-        mock_async_client.get.return_value = mock_res_429
         with patch("apps.sources.adapters.http_client.validate_url_for_ssrf"):
             with pytest.raises(RateLimitError) as exc_info:
                 await client.fetch("https://example.com/feed")
@@ -195,18 +214,14 @@ async def test_http_client_maps_status_codes():
             assert exc_info.value.is_transient is True
 
         # 404 Permanent
-        mock_res_404 = AsyncMock(
-            status_code=404, is_redirect=False, headers={}, content=b"Not Found"
-        )
-        mock_async_client.get.return_value = mock_res_404
+        mock_async_client.send.return_value = _MockResponse(status_code=404, content=b"Not Found")
         with patch("apps.sources.adapters.http_client.validate_url_for_ssrf"):
             with pytest.raises(PermanentSourceError) as exc_info:
                 await client.fetch("https://example.com/feed")
             assert exc_info.value.is_transient is False
 
         # 500 Network / Server Error
-        mock_res_500 = AsyncMock(status_code=500, is_redirect=False, headers={}, content=b"Error")
-        mock_async_client.get.return_value = mock_res_500
+        mock_async_client.send.return_value = _MockResponse(status_code=500, content=b"Error")
         with patch("apps.sources.adapters.http_client.validate_url_for_ssrf"):
             with pytest.raises(NetworkError) as exc_info:
                 await client.fetch("https://example.com/feed")
@@ -219,8 +234,8 @@ async def test_http_client_rejects_oversized_response():
     with patch.object(client, "get_client") as mock_get_client:
         mock_async_client = AsyncMock()
         mock_get_client.return_value = mock_async_client
-        mock_res = AsyncMock(status_code=200, is_redirect=False, headers={}, content=b"X" * 150)
-        mock_async_client.get.return_value = mock_res
+        mock_async_client.build_request.return_value = "req"
+        mock_async_client.send.return_value = _MockResponse(status_code=200, content=b"X" * 150)
         with patch("apps.sources.adapters.http_client.validate_url_for_ssrf"):
             with pytest.raises(PayloadTooLargeError):
                 await client.fetch("https://example.com/feed")

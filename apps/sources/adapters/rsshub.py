@@ -64,9 +64,18 @@ class RSSHubAdapter(SourceAdapter):
     async def fetch(self, context: FetchContext) -> FetchResult:
         endpoint_url = self.build_endpoint_url(context)
 
-        # Allow internal docker hostname for self-hosted RSSHub
-        allow_hosts = list(self.http_client.allow_hosts)
-        allow_hosts.extend(["rsshub", "localhost", "127.0.0.1"])
+        # Only allow explicit trusted hosts configured in deployment settings.
+        # Arbitrary source configurations cannot bypass SSRF protections.
+        trusted_hosts = set(getattr(settings, "RSSHUB_TRUSTED_HOSTS", ["rsshub"]))
+        default_base = getattr(settings, "RSSHUB_BASE_URL", "")
+        if default_base:
+            from urllib.parse import urlparse
+
+            default_host = urlparse(default_base).hostname
+            if default_host:
+                trusted_hosts.add(default_host)
+
+        allow_hosts = list(set(self.http_client.allow_hosts) | trusted_hosts)
 
         rsshub_http = SafeHttpClient(
             user_agent=self.http_client.user_agent,
