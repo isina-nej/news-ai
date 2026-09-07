@@ -1,0 +1,78 @@
+[project]
+name = "newsai"
+version = "0.1.0"
+description = "AI-powered news intelligence and publishing platform"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "Django==5.2.*",
+  "django-ninja==1.7.*",
+  "django-environ==0.12.*",
+  "mysqlclient==2.2.*",
+  "celery==5.6.*",
+  "redis==8.1.*",
+  "hiredis==3.*",
+  "django-celery-beat==2.8.*",
+  "kurigram==2.2.*",
+  "python-telegram-bot==22.8",
+  "httpx==0.28.*",
+  "feedparser==6.0.14",
+  "trafilatura==2.2.*",
+  "readability-lxml==0.9.*",
+  "beautifulsoup4==4.15.*",
+  "lxml==6.*",
+  "pydantic==2.*",
+  "structlog==25.*",
+  "cryptography==44.*",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==8.*",
+  "pytest-django==4.14.*",
+  "pytest-asyncio==0.26.*",
+  "ruff==0.16.*",
+  "pre-commit==4.*",
+  "ipython==9.*",
+]
+bandit = [
+  # Phase C only. ponytail: add when >1k own-channel snapshots exist.
+  "vowpalwabbit==9.11.2",
+]
+playwright = [
+  # JS-render fallback only, not default path.
+  "playwright==1.62.*",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
+ignore = ["S101"]
+[tool.ruff.lint.per-file-ignores]
+"apps/*/migrations/*.py" = ["E501"]
+"config/settings/local.py" = ["F405"]
+"config/settings/prod.py" = ["F405"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.local"
+pythonpath = ["."]
+asyncio_mode = "auto"
+
+[tool.pyright]
+typeCheckingMode = "basic"
+venvPath = "."
+extraPaths = ["."]
+# NOTE: pyright without django-stubs flags standard Django ORM idioms
+# (TextChoices tuples, field defaults, *_id attrs) as false-positive errors.
+# Phase 1 verdict: ruff + pytest + manage.py check are the gates; pyright runs
+# in advisory mode only. Revisit with django-stubs in a later phase.
+executionEnvironments = [{ root = "scripts" }, { root = "tests" }]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
