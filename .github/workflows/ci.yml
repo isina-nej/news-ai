@@ -21,8 +21,15 @@ jobs:
         options: >-
           --health-cmd "mysqladmin ping -h localhost -u root -proot"
           --health-interval 10s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 5
     env:
       DATABASE_URL: mysql://newsai:newsai@127.0.0.1:3306/newsai_verify
+      REDIS_URL: redis://127.0.0.1:6379/0
       DJANGO_SETTINGS_MODULE: config.settings.base
       DJANGO_SECRET_KEY: ci-only-not-a-secret
     steps:
