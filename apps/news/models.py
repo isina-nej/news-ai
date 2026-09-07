@@ -48,7 +48,13 @@ class SourceItem(TimeStampedModel):
     title = models.CharField(max_length=1024, blank=True, default="")
     raw_text = models.TextField(blank=True, default="")
     normalized_text = models.TextField(blank=True, default="")
-    content_hash = models.CharField(max_length=64, blank=True, default="")
+    raw_content_hash = models.CharField(max_length=64, blank=True, default="")
+    content_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        help_text="SHA-256 hash of normalized_text for exact deduplication.",
+    )
     media = models.JSONField(default=dict, blank=True)
     language = models.CharField(max_length=10, default="und")
     content_type = models.CharField(
@@ -91,6 +97,7 @@ class SourceItem(TimeStampedModel):
             models.Index(fields=["story", "collected_at"]),
             models.Index(fields=["published_at"]),
             models.Index(fields=["content_hash"]),
+            models.Index(fields=["raw_content_hash"]),
             models.Index(fields=["url_hash"]),
         ]
 
@@ -105,6 +112,13 @@ class SourceItem(TimeStampedModel):
             self.external_id = None
         if not self.url_hash and self.canonical_url:
             self.url_hash = hashlib.sha256(self.canonical_url.encode()).hexdigest()
+        if not self.raw_content_hash and self.raw_text:
+            self.raw_content_hash = hashlib.sha256(self.raw_text.encode()).hexdigest()
+        if not self.content_hash and self.normalized_text:
+            self.content_hash = hashlib.sha256(self.normalized_text.encode()).hexdigest()
+        elif not self.content_hash and self.raw_text:
+            self.content_hash = hashlib.sha256(self.raw_text.encode()).hexdigest()
+
         self.full_clean(exclude=None, validate_unique=False)
         super().save(*args, **kwargs)
 

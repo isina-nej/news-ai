@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Engineering Digest</title>
+  <link href="https://engdigest.example.com"/>
+  <updated>2026-09-07T07:00:00Z</updated>
+  <id>urn:uuid:60a76c80-d399-11d9-b91C-0003939e0af6</id>
+  <entry>
+    <title>Scaling Distributed Cache Tier Under High Concurrency</title>
+    <link href="https://engdigest.example.com/scaling-cache"/>
+    <id>tag:engdigest.example.com,2026:post-401</id>
+    <updated>2026-09-07T06:45:00Z</updated>
+    <published>2026-09-07T06:30:00Z</published>
+    <author><name>Alex Rivera</name></author>
+    <summary>Architectural walkthrough of cache invalidation strategies and lock avoidance.</summary>
+    <content type="html"><![CDATA[<p>Architectural walkthrough of cache invalidation strategies, bloom filters, and consistent hashing to mitigate thundering herd problems.</p>]]></content>
+  </entry>
+</feed>

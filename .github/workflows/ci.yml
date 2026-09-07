@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install deps
-        run: uv pip install --system -e ".[dev]" cryptography structlog
+        run: uv pip install --system -r pyproject.toml --extra dev cryptography structlog
       - name: Ruff check
         run: ruff check .
       - name: Ruff format check

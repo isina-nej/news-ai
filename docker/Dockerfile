@@ -6,5 +6,5 @@ COPY pyproject.toml README.md ./
 COPY config ./config
 COPY apps ./apps
 COPY manage.py ./
-RUN uv pip install --system -e ".[dev]"
+RUN uv pip install --system -r pyproject.toml --extra dev
 EXPOSE 8000

@@ -12,9 +12,13 @@ from django.utils import timezone
 
 from apps.news.models import SourceItem
 from apps.ops.models import Subtopic, Topic
-from apps.publishing.models import Publication, compute_publication_payload_hash
+from apps.publishing.models import (
+    Publication,
+    PublicationStatus,
+    compute_publication_payload_hash,
+)
 from apps.ranking import metrics as metric_registry
-from apps.ranking.models import DecisionLog, DecisionType, ScoreRecord, SourceBaseline
+from apps.ranking.models import ScoreRecord, SourceBaseline
 from apps.sources.models import Source
 from apps.stories.models import Story, StoryMembership
 
@@ -227,22 +231,34 @@ def test_publication_fingerprint_uses_template_and_emoji_level():
     assert base.content_hash == compute_publication_payload_hash(base)
 
 
-def test_decision_log_rewards_allow_null_and_0_to_1_only():
+def test_publication_transition_invariant_rejects_unsaved_content():
     story = _story()
-    # Null rewards allowed before scoring completes.
-    DecisionLog.objects.create(
+    pub = Publication.objects.create(
         story=story,
-        algorithm_version="v1",
-        decision_type=DecisionType.WHAT,
-        feature_snapshot={},
-        selected_action="publish",
+        channel="@c",
+        headline="Initial headline",
+        content="Initial body",
+        idempotency_key="rg-trans-inv-1",
     )
-    with pytest.raises(ValidationError):
-        DecisionLog(
-            story=story,
-            algorithm_version="v1",
-            decision_type=DecisionType.WHAT,
-            feature_snapshot={},
-            selected_action="publish",
-            predicted_reward=Decimal("1.5"),
-        ).full_clean()
+    initial_hash = pub.content_hash
+    assert pub.status == PublicationStatus.DRAFT
+
+    # Attempt transition while mutating headline in memory without saving
+    pub.headline = "Sneaky modified headline"
+    with pytest.raises(ValidationError) as excinfo:
+        pub.transition(PublicationStatus.READY)
+    assert "Cannot transition with unsaved content changes" in str(excinfo.value)
+    assert pub.status == PublicationStatus.DRAFT
+
+    # Reload, save content cleanly, then transition succeeds with fresh hash
+    pub.refresh_from_db()
+    assert pub.content_hash == initial_hash
+    pub.headline = "Clean modified headline"
+    pub.save()
+    new_hash = pub.content_hash
+    assert new_hash != initial_hash
+
+    pub.transition(PublicationStatus.READY)
+    assert pub.status == PublicationStatus.READY
+    pub.refresh_from_db()
+    assert pub.content_hash == new_hash

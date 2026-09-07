@@ -12,6 +12,13 @@ Idempotency design (accidental duplicates impossible, material updates allowed):
 content_hash is a fingerprint of the FINAL RENDERED payload
 (headline + content + template/style fields), not body alone, and is always
 recomputed on save so headline/style changes never go stale.
+
+Invariant for Phase 2 patch:
+- Content/style mutation and state transition must not be silently bundled.
+  `transition()` only changes `status` (and keeps `content_hash` consistent
+  with already-persisted payload). If caller mutated headline/content/etc.
+  without saving first, transition raises ValidationError so hash never goes
+  stale and content change is explicit.
 """
 
 from __future__ import annotations
@@ -67,6 +74,17 @@ class UpdateType(models.TextChoices):
     INITIAL = "initial", "Initial publish"
     MATERIAL_UPDATE = "material_update", "Material update"
     CORRECTION = "correction", "Correction"
+
+
+FINGERPRINT_FIELDS = (
+    "headline",
+    "content",
+    "template_version",
+    "headline_style",
+    "tone",
+    "emoji_level",
+    "technical_depth",
+)
 
 
 def compute_publication_payload_hash(pub: Publication) -> str | None:
@@ -177,9 +195,33 @@ class Publication(TimeStampedModel):
     def transition(self, target: str, *, save: bool = True) -> None:
         if not self.can_transition(target):
             raise ValidationError(f"Illegal transition {self.status} -> {target}.")
+        # Invariant: do not silently bundle content/style mutation with status change.
+        # If caller mutated fingerprint fields without saving, force explicit save first
+        # so content_hash never goes stale and intent is unambiguous.
+        if self.pk is not None:
+            persisted = (
+                type(self)
+                .objects.filter(pk=self.pk)
+                .only(*FINGERPRINT_FIELDS, "content_hash")
+                .first()
+            )
+            if persisted is not None:
+                dirty = [f for f in FINGERPRINT_FIELDS if getattr(self, f) != getattr(persisted, f)]
+                if dirty:
+                    raise ValidationError(
+                        f"Cannot transition with unsaved content changes in {dirty}. "
+                        "Save content separately before transitioning so content_hash "
+                        "stays consistent."
+                    )
+                # Keep hash consistent with persisted payload (recomputed anyway, but be explicit).
+                expected = compute_publication_payload_hash(persisted)
+                if self.content_hash != expected:
+                    self.content_hash = expected
         self.status = target
         if save:
-            self.save(update_fields=["status", "updated_at"])
+            # Only status (+ hash consistency) should be written; fingerprint fields
+            # are intentionally excluded so they cannot piggyback on a transition.
+            self.save(update_fields=["status", "content_hash", "updated_at"])
 
     def __str__(self) -> str:
         return f"pub {self.story_id}@{self.channel} v{self.publication_version} [{self.status}]"

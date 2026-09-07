@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Undated News Wire</title>
+    <link>https://wire.example.com</link>
+    <item>
+      <title>Unscheduled System Maintenance Notice</title>
+      <link>https://wire.example.com/notices/maintenance</link>
+      <guid>notice-991</guid>
+      <description>Upgrades scheduled for secondary power switching infrastructure.</description>
+    </item>
+  </channel>
+</rss>

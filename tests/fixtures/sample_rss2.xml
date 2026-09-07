@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Tech Chronicle</title>
+    <link>https://techchronicle.example.com</link>
+    <description>Latest technology news</description>
+    <item>
+      <title>Breakthrough in Neuromorphic Architecture</title>
+      <link>https://techchronicle.example.com/posts/breakthrough-neuromorphic-2026</link>
+      <guid>tc-2026-09-001</guid>
+      <pubDate>Mon, 07 Sep 2026 08:30:00 GMT</pubDate>
+      <author>dr.chen@example.com (Dr. Aris Chen)</author>
+      <description><![CDATA[Researchers have demonstrated low-power neuromorphic clusters running continuous learning loops in hardware with minimal drift.]]></description>
+      <enclosure url="https://techchronicle.example.com/media/neuromorphic.jpg" length="102400" type="image/jpeg" />
+    </item>
+    <item>
+      <title>Autonomous Systems Pass New Safety Benchmark</title>
+      <link>https://techchronicle.example.com/posts/autonomous-safety-benchmark</link>
+      <guid>tc-2026-09-002</guid>
+      <pubDate>Mon, 07 Sep 2026 09:15:00 GMT</pubDate>
+      <author>sarah@example.com (Sarah Jenkins)</author>
+      <description><![CDATA[A standardized consortium has released new verification testbeds for autonomous controllers in complex industrial settings.]]></description>
+    </item>
+  </channel>
+</rss>

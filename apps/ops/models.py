@@ -140,7 +140,7 @@ class AudiencePreference(TimeStampedModel):
                 fields=["feature", "context_hash"], name="uniq_pref_feature_ctx"
             ),
             models.CheckConstraint(
-                check=Q(confidence__gte=0, confidence__lte=1),
+                condition=Q(confidence__gte=0, confidence__lte=1),
                 name="chk_audiencepref_confidence_0_1",
             ),
         ]
