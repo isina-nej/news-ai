@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -27,7 +28,12 @@ class SourceItemStatus(models.TextChoices):
 
 
 class SourceItem(TimeStampedModel):
-    """One fetched unit from one source. Same event from N sources = N rows, one Story."""
+    """One fetched unit from one source. Same event from N sources = N rows, one Story.
+
+    Current assignment lives on `story` FK (nullable = unassigned) plus a single
+    `StoryMembership(is_current=True)` row. Change assignment by flipping the
+    membership, never by diverging the two — `save()` keeps them consistent.
+    """
 
     source = models.ForeignKey("sources.Source", on_delete=models.PROTECT, related_name="items")
     external_id = models.CharField(
@@ -60,7 +66,7 @@ class SourceItem(TimeStampedModel):
         null=True,
         blank=True,
         related_name="items",
-        help_text="Primary story cache. Membership table is the rich link.",
+        help_text="Current Story assignment; must match the single current membership.",
     )
     published_at = models.DateTimeField(
         null=True, blank=True, help_text="Real publish time at the source, not fetch time."
@@ -82,16 +88,24 @@ class SourceItem(TimeStampedModel):
         indexes = [
             models.Index(fields=["source", "collected_at"]),
             models.Index(fields=["status", "collected_at"]),
+            models.Index(fields=["story", "collected_at"]),
             models.Index(fields=["published_at"]),
             models.Index(fields=["content_hash"]),
             models.Index(fields=["url_hash"]),
         ]
+
+    def clean(self) -> None:
+        if not self.external_id:
+            self.external_id = None  # keep NULL-distinct invariant pre-validation
+        if self.subtopic and self.topic and self.subtopic.topic_id != self.topic_id:
+            raise ValidationError({"subtopic": "subtopic does not belong to the selected topic."})
 
     def save(self, *args, **kwargs):
         if not self.external_id:
             self.external_id = None
         if not self.url_hash and self.canonical_url:
             self.url_hash = hashlib.sha256(self.canonical_url.encode()).hexdigest()
+        self.full_clean(exclude=None, validate_unique=False)
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:

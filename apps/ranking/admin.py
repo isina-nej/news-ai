@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+from . import metrics as metric_registry
 from .models import DecisionLog, RankingWeight, ScoreRecord, SourceBaseline
 
 
@@ -32,14 +33,19 @@ class SourceBaselineAdmin(admin.ModelAdmin):
         "source",
         "platform",
         "metric",
+        "is_derived",
         "content_type",
         "age_bucket_minutes",
         "sample_count",
         "p50",
         "confidence",
     )
-    list_filter = ("platform", "metric", "content_type")
-    readonly_fields = ("created_at", "updated_at")
+    list_filter = ("platform", "content_type")
+    readonly_fields = ("context_hash", "created_at", "updated_at")
+
+    @admin.display(boolean=True, description="derived")
+    def is_derived(self, obj: SourceBaseline) -> bool:
+        return metric_registry.is_derived_metric(obj.metric)
 
 
 @admin.register(DecisionLog)

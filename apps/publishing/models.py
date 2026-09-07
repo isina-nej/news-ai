@@ -4,15 +4,20 @@ Idempotency design (accidental duplicates impossible, material updates allowed):
 - `idempotency_key` unique: caller-supplied key per publish intent.
   Retry of the same intent MUST reuse the same row (transition FAILED->PUBLISHING),
   never insert a new row.
-- `UNIQUE(story, channel, content_hash)`: same rendered content for the same
+- `UNIQUE(story, channel, content_hash)`: same rendered payload for the same
   story+channel cannot be inserted twice, even with a different key.
 - `UNIQUE(story, channel, publication_version)`: material updates are new rows
   with bumped version + new content_hash + update_type != INITIAL.
+
+content_hash is a fingerprint of the FINAL RENDERED payload
+(headline + content + template/style fields), not body alone, and is always
+recomputed on save so headline/style changes never go stale.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinLengthValidator
@@ -64,6 +69,31 @@ class UpdateType(models.TextChoices):
     CORRECTION = "correction", "Correction"
 
 
+def compute_publication_payload_hash(pub: Publication) -> str | None:
+    """Fingerprint of the final rendered telegram payload.
+
+    Includes every field that changes what the subscriber sees:
+    headline, content, template_version, headline_style, tone,
+    emoji_level, technical_depth. Returns None for empty drafts
+    (both headline and content blank) so NULL-unique never collides.
+    """
+    headline = (pub.headline or "").strip()
+    content = (pub.content or "").strip()
+    if not headline and not content:
+        return None
+    payload = {
+        "headline": headline,
+        "content": content,
+        "template_version": (pub.template_version or "").strip(),
+        "headline_style": (pub.headline_style or "").strip(),
+        "tone": (pub.tone or "").strip(),
+        "emoji_level": pub.emoji_level,
+        "technical_depth": pub.technical_depth,
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
 class Publication(TimeStampedModel):
     story = models.ForeignKey(
         "stories.Story", on_delete=models.PROTECT, related_name="publications"
@@ -85,8 +115,9 @@ class Publication(TimeStampedModel):
         null=True,
         blank=True,
         default=None,
-        help_text="SHA-256 of rendered content, filled pre-save. NULL while draft has "
-        "no content yet; NULLs stay distinct under UNIQUE so empty drafts never collide.",
+        editable=False,
+        help_text="SHA-256 of final rendered payload, recomputed on every save. "
+        "NULL while draft has no visible content; NULLs stay distinct under UNIQUE.",
     )
     template_version = models.CharField(max_length=32, blank=True, default="")
     headline_style = models.CharField(max_length=32, blank=True, default="")
@@ -133,10 +164,10 @@ class Publication(TimeStampedModel):
     def save(self, *args, **kwargs):
         if self.content is None:
             self.content = ""
-        if self.content and not self.content_hash:
-            self.content_hash = hashlib.sha256(self.content.encode()).hexdigest()
-        if not self.content:
-            self.content_hash = None
+        if self.headline is None:
+            self.headline = ""
+        # Always recompute so headline/style edits never leave a stale hash.
+        self.content_hash = compute_publication_payload_hash(self)
         self.full_clean(exclude=None, validate_unique=False)
         super().save(*args, **kwargs)
 

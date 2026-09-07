@@ -7,16 +7,40 @@ so one standard across the system. Display as percent only at presentation layer
 from __future__ import annotations
 
 import hashlib
+import math
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinLengthValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 
 from apps.core.choices import ContentType, Platform
 from apps.core.models import TimeStampedModel
+from apps.ranking import metrics as metric_registry
 
 UNIT_INTERVAL = [MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("1"))]
+
+
+def _validate_breakdown_unit_values(breakdown: dict) -> None:
+    """Every numeric leaf inside breakdown must be a finite 0..1 value."""
+    for group_name, group in breakdown.items():
+        if not isinstance(group, dict):
+            continue
+        for key, value in group.items():
+            if isinstance(value, dict):
+                continue
+            if isinstance(value, bool):
+                continue
+            try:
+                num = float(value)
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(num) or not (0 <= num <= 1):
+                raise ValidationError(
+                    f"breakdown['{group_name}']['{key}'] must be a finite number in 0..1, "
+                    f"got {value!r}."
+                )
 
 
 def validate_breakdown(value: dict) -> None:
@@ -28,6 +52,7 @@ def validate_breakdown(value: dict) -> None:
             raise ValidationError(f"score_breakdown missing group '{group}'.")
         if not isinstance(value[group], dict):
             raise ValidationError(f"score_breakdown['{group}'] must be an object.")
+    _validate_breakdown_unit_values(value)
 
 
 class RankingWeight(TimeStampedModel):
@@ -37,6 +62,12 @@ class RankingWeight(TimeStampedModel):
     enabled = models.BooleanField(default=True)
 
     class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=Q(value__gte=Decimal("0"), value__lte=Decimal("1")),
+                name="chk_rankingweight_value_0_1",
+            ),
+        ]
         indexes = [models.Index(fields=["enabled"])]
 
     def save(self, *args, **kwargs):
@@ -61,6 +92,24 @@ class ScoreRecord(TimeStampedModel):
     )
 
     class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=Q(news_value__gte=0, news_value__lte=1),
+                name="chk_scorerecord_news_value_0_1",
+            ),
+            models.CheckConstraint(
+                check=Q(audience_fit__gte=0, audience_fit__lte=1),
+                name="chk_scorerecord_audience_fit_0_1",
+            ),
+            models.CheckConstraint(
+                check=Q(momentum__gte=0, momentum__lte=1),
+                name="chk_scorerecord_momentum_0_1",
+            ),
+            models.CheckConstraint(
+                check=Q(final_score__gte=0, final_score__lte=1),
+                name="chk_scorerecord_final_0_1",
+            ),
+        ]
         indexes = [
             models.Index(fields=["story", "-created_at"]),
             models.Index(fields=["algorithm_version", "-final_score"]),
@@ -75,23 +124,13 @@ class ScoreRecord(TimeStampedModel):
         return f"{self.story_id} {self.algorithm_version}={self.final_score}"
 
 
-class BaselineMetric(models.TextChoices):
-    VIEWS = "views", "Views"
-    FORWARDS = "forwards", "Forwards"
-    SHARES = "shares", "Shares"
-    REACTIONS = "reactions", "Reactions"
-    REPLIES = "replies", "Replies"
-    SAVES = "saves", "Saves"
-
-
 class SourceBaseline(TimeStampedModel):
     """One row per (context x metric). Metric-as-row avoids migrations per metric.
 
-    Tradeoff chosen: wide-table (one row per context, percentile columns per metric)
-    would bake metric names into columns and need a migration per new metric.
-    Narrow metric-based rows keep schema stable; query cost is one indexed lookup
-    per (context, metric). Percentiles stored per row; NULL percentile = unknown.
+    Metrics are registry-backed (apps.ranking.metrics) — derived metrics like
+    velocity/acceleration need no schema or enum change.
 
+    Percentiles stored per row; NULL percentile = unknown.
     Uniqueness via `context_hash` (not a multi-column UniqueConstraint) because
     source/topic/subtopic are nullable and MySQL treats NULLs as distinct in
     unique indexes, which would allow silent duplicate baselines.
@@ -118,7 +157,8 @@ class SourceBaseline(TimeStampedModel):
     age_bucket_minutes = models.PositiveIntegerField(
         help_text="Snapshot schedule bucket, e.g. 10, 30, 60, 180, 360, 720, 1440."
     )
-    metric = models.CharField(max_length=16, choices=BaselineMetric.choices)
+    # Free-form registry key; validated against metrics registry, not TextChoices.
+    metric = models.CharField(max_length=32)
     context_hash = models.CharField(max_length=64, unique=True, editable=False)
     sample_count = models.PositiveIntegerField(default=0)
     p25 = models.FloatField(null=True, blank=True, default=None)
@@ -132,6 +172,12 @@ class SourceBaseline(TimeStampedModel):
     )
 
     class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=Q(confidence__gte=0, confidence__lte=1),
+                name="chk_baseline_confidence_0_1",
+            ),
+        ]
         indexes = [
             models.Index(
                 fields=["source", "metric", "age_bucket_minutes"],
@@ -140,7 +186,16 @@ class SourceBaseline(TimeStampedModel):
             models.Index(fields=["platform", "metric"]),
         ]
 
+    def clean(self) -> None:
+        if self.metric and not metric_registry.is_valid_metric(self.metric):
+            raise ValidationError(
+                {"metric": f"Unknown metric '{self.metric}'. Register it in metrics.py."}
+            )
+        if self.subtopic and self.topic and self.subtopic.topic_id != self.topic_id:
+            raise ValidationError({"subtopic": "subtopic does not belong to the selected topic."})
+
     def save(self, *args, **kwargs):
+        self.full_clean(exclude=None, validate_unique=False)
         parts = [
             str(self.source_id or 0),
             self.platform or "",
@@ -192,6 +247,18 @@ class DecisionLog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=Q(is_exploration=False)
+                | (Q(exploration_probability__gte=0) & Q(exploration_probability__lte=1)),
+                name="chk_decision_expl_prob_0_1",
+            ),
+            models.CheckConstraint(
+                check=Q(predicted_reward__isnull=True)
+                | (Q(predicted_reward__gte=0) & Q(predicted_reward__lte=1)),
+                name="chk_decision_predicted_reward_0_1",
+            ),
+        ]
         indexes = [
             models.Index(fields=["story", "decision_type", "-created_at"]),
             models.Index(fields=["algorithm_version", "decision_type", "-created_at"]),

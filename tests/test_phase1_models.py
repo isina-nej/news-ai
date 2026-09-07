@@ -42,7 +42,9 @@ def _story(**kw):
 def test_duplicate_same_source_external_id_blocked():
     s = _source()
     SourceItem.objects.create(source=s, external_id="m1", title="a")
-    with pytest.raises(IntegrityError), transaction.atomic():
+    # Duplicate raises ValidationError in-model (full_clean + validate_unique),
+    # IntegrityError at DB level on race. Both mean blocked on prod.
+    with pytest.raises((IntegrityError, ValidationError)), transaction.atomic():
         SourceItem.objects.create(source=s, external_id="m1", title="b")
 
 
@@ -258,7 +260,7 @@ def test_audience_preference_no_migration_per_feature():
 def test_subtopic_unique_per_topic():
     t = Topic.objects.create(slug="tech", name="Tech")
     Subtopic.objects.create(topic=t, slug="ai", name="AI")
-    with pytest.raises(IntegrityError), transaction.atomic():
+    with pytest.raises((IntegrityError, ValidationError)), transaction.atomic():
         Subtopic.objects.create(topic=t, slug="ai", name="AI dup")
 
 

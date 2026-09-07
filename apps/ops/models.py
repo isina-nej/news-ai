@@ -1,4 +1,11 @@
-"""Ops: taxonomy, settings, flags, audit, audience learning. No secrets stored or logged."""
+"""Ops: taxonomy, settings, flags, audit, audience learning. No secrets stored or logged.
+
+Session storage policy (env-only vs DB) is documented here as the single source
+of truth; architecture.md and security.md must match this. Current choice:
+Telegram Kurigram session string in env (TELEGRAM_SESSION_STRING) for phase 1
+sync-runner; encrypted-at-rest DB column is reserved for multi-account phase
+and MUST NOT appear until the encryption key-rotation story ships. See ADR.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +15,7 @@ from decimal import Decimal
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 
 from apps.core.models import TimeStampedModel
 
@@ -25,7 +33,14 @@ class Topic(TimeStampedModel):
     )
 
     class Meta:
+        constraints = [
+            models.CheckConstraint(condition=Q(weight__gte=0), name="chk_topic_weight_ge_0"),
+        ]
         indexes = [models.Index(fields=["enabled"])]
+
+    def save(self, *args, **kwargs):
+        self.full_clean(exclude=None, validate_unique=False)
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return self.name
@@ -47,8 +62,13 @@ class Subtopic(TimeStampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["topic", "slug"], name="uniq_subtopic_topic_slug"),
+            models.CheckConstraint(condition=Q(weight__gte=0), name="chk_subtopic_weight_ge_0"),
         ]
         indexes = [models.Index(fields=["topic", "enabled"])]
+
+    def save(self, *args, **kwargs):
+        self.full_clean(exclude=None, validate_unique=False)
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.topic.name} / {self.name}"
@@ -119,6 +139,10 @@ class AudiencePreference(TimeStampedModel):
             models.UniqueConstraint(
                 fields=["feature", "context_hash"], name="uniq_pref_feature_ctx"
             ),
+            models.CheckConstraint(
+                check=Q(confidence__gte=0, confidence__lte=1),
+                name="chk_audiencepref_confidence_0_1",
+            ),
         ]
         indexes = [
             models.Index(fields=["feature", "updated_at"]),
@@ -127,6 +151,7 @@ class AudiencePreference(TimeStampedModel):
     def save(self, *args, **kwargs):
         canonical = json.dumps(self.context or {}, sort_keys=True, separators=(",", ":"))
         self.context_hash = hashlib.sha256(canonical.encode()).hexdigest()
+        self.full_clean(exclude=None, validate_unique=False)
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:

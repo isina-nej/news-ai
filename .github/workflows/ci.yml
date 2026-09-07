@@ -1,0 +1,50 @@
+name: ci
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: newsai_verify
+          MYSQL_USER: newsai
+          MYSQL_PASSWORD: newsai
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -u root -proot"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: mysql://newsai:newsai@127.0.0.1:3306/newsai_verify
+      DJANGO_SETTINGS_MODULE: config.settings.base
+      DJANGO_SECRET_KEY: ci-only-not-a-secret
+      UV_SYSTEM_PYTHON: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: uv pip install --system -e ".[dev]" cryptography structlog
+      - name: Ruff check
+        run: ruff check .
+      - name: Ruff format check
+        run: ruff format --check .
+      - name: Django check
+        run: python manage.py check
+      - name: Migration consistency
+        run: python manage.py makemigrations --check --dry-run
+      - name: Migrate (MySQL 8.4)
+        run: python manage.py migrate
+      - name: Pytest
+        run: pytest -q
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

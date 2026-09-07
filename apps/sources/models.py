@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 
 from apps.core.choices import Platform
 from apps.core.models import TimeStampedModel
@@ -51,11 +52,23 @@ class Source(TimeStampedModel):
             models.UniqueConstraint(
                 fields=["platform", "identifier"], name="uniq_source_platform_identifier"
             ),
+            models.CheckConstraint(
+                check=Q(reliability_score__gte=0, reliability_score__lte=1),
+                name="chk_source_reliability_0_1",
+            ),
+            models.CheckConstraint(
+                check=Q(trust_score__gte=0, trust_score__lte=1),
+                name="chk_source_trust_0_1",
+            ),
         ]
         indexes = [
             models.Index(fields=["platform", "enabled"]),
             models.Index(fields=["enabled", "priority"]),
         ]
+
+    def save(self, *args, **kwargs):
+        self.full_clean(exclude=None, validate_unique=False)
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.name} [{self.platform}]"

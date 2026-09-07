@@ -6,7 +6,7 @@ from .models import Story, StoryMembership
 class StoryMembershipInline(admin.TabularInline):
     model = StoryMembership
     extra = 0
-    readonly_fields = ("added_at", "created_at", "updated_at")
+    readonly_fields = ("added_at", "created_at", "updated_at", "current_slot")
     exclude = ("detail",)
 
 
@@ -19,11 +19,11 @@ class StoryAdmin(admin.ModelAdmin):
         "language",
         "independent_source_count",
         "first_published_at",
-        "latest_update_at",
+        "latest_source_update_at",
     )
     list_filter = ("status", "language")
     search_fields = ("canonical_title",)
-    readonly_fields = ("created_at", "updated_at", "first_seen_at", "latest_update_at")
+    readonly_fields = ("created_at", "updated_at", "first_seen_at", "latest_source_update_at")
     inlines = [StoryMembershipInline]
 
     @admin.display(description="title")
