@@ -29,7 +29,7 @@
 
 ## Phase 5 — AI Intelligence Layer
 - Status: Completed (offline/CI regression green; live provider calls skipped without external credentials)
-- SHA: Pending commit
+- SHA: `770eb17`
 - CI Run: Pending push (blocked on external GitHub credentials in sandbox)
 - Tests: 152 passed, 1 skipped
 - Migrations: `ai.0001_initial`
@@ -52,7 +52,7 @@
 
 ## Phase 6 — Ranking, Baselines, Selection
 - Status: Completed (offline/CI regression green)
-- SHA: Pending commit
+- SHA: `acbbfe3`
 - CI Run: Pending push (blocked on external GitHub credentials in sandbox)
 - Tests: 164 passed, 1 skipped
 - Migrations: none
@@ -67,3 +67,23 @@
   - Baselines need real engagement history before becoming meaningful; fallback uses deterministic defaults.
 - Skipped Live Integrations:
   - None required for Phase 6.
+
+---
+
+## Phase 7 — Telegram Publishing + Publishing Policy
+- Status: Completed (offline/CI regression green; live Bot sending skipped without credentials)
+- SHA: Pending commit
+- CI Run: Pending push (blocked on external GitHub credentials in sandbox)
+- Tests: 173 passed, 1 skipped
+- Migrations: none
+- Important Architecture Decisions:
+  - Publisher abstraction behind `PublisherPort` with `TelegramBotPublisher` and `FakePublisher`.
+  - WHAT/WHEN/HOW publishing engine separates action, schedule timing (with breaking news override), and formatting.
+  - Auto-publish is strictly off by default (`ENABLE_AUTO_PUBLISH=false`). Dry-run mode tests end-to-end rendering without dispatch.
+  - Telegram HTML escaping and 4096 character clamping prevent formatting injection and payload rejection.
+  - External Telegram API calls execute outside open database transactions, ensuring failures and retry states are safely recorded.
+  - Normalized reward function computes own-channel performance across available signals.
+- Known Limitations:
+  - Live Telegram bot credentials not present in sandbox; live send skipped.
+- Skipped Live Integrations:
+  - Live Telegram Bot API delivery.
