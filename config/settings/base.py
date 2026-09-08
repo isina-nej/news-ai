@@ -106,6 +106,25 @@ TELEGRAM_ACCOUNT_KEY = env("TELEGRAM_ACCOUNT_KEY", default="default")
 # Dedicated worker concurrency per Telegram account (default 1).
 TELEGRAM_WORKER_CONCURRENCY = env.int("TELEGRAM_WORKER_CONCURRENCY", default=1)
 
+# Phase 4 clustering / intelligence settings (env defaults, DB-overridable).
+EMBEDDING_PROVIDER = env("EMBEDDING_PROVIDER", default="fake")
+EMBEDDING_MODEL = env(
+    "EMBEDDING_MODEL", default="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+)
+EMBEDDING_MODEL_VERSION = env("EMBEDDING_MODEL_VERSION", default="phase4-default-v1")
+EMBEDDING_DIMENSION = env.int("EMBEDDING_DIMENSION", default=384)
+EMBEDDING_BATCH_SIZE = env.int("EMBEDDING_BATCH_SIZE", default=32)
+QDRANT_URL = env("QDRANT_URL", default="http://qdrant:6333")
+QDRANT_COLLECTION = env("QDRANT_COLLECTION", default="newsai_items")
+CLUSTER_ALGORITHM_VERSION = env("CLUSTER_ALGORITHM_VERSION", default="cluster-v1")
+CLUSTER_HIGH_THRESHOLD = env.float("CLUSTER_HIGH_THRESHOLD", default=0.78)
+CLUSTER_LOW_THRESHOLD = env.float("CLUSTER_LOW_THRESHOLD", default=0.52)
+CLUSTER_MAX_CANDIDATES = env.int("CLUSTER_MAX_CANDIDATES", default=30)
+CLUSTER_DEFAULT_LOOKBACK_HOURS = env.int("CLUSTER_DEFAULT_LOOKBACK_HOURS", default=48)
+CLUSTER_EXTENDED_LOOKBACK_HOURS = env.int("CLUSTER_EXTENDED_LOOKBACK_HOURS", default=120)
+MINHASH_NUM_PERM = env.int("MINHASH_NUM_PERM", default=128)
+MINHASH_SCHEME = env("MINHASH_SCHEME", default="affine32")
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

@@ -122,6 +122,8 @@ class SourceItem(TimeStampedModel):
             models.Index(fields=["content_hash"]),
             models.Index(fields=["raw_content_hash"]),
             models.Index(fields=["url_hash"]),
+            models.Index(fields=["language", "published_at"]),
+            models.Index(fields=["status", "published_at"]),
         ]
 
     def clean(self) -> None:

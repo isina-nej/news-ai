@@ -43,7 +43,26 @@ services:
     build: {context: ., dockerfile: docker/Dockerfile}
     command: celery -A config.celery worker -l info -Q celery
     env_file: [.env]
+    volumes: ["fastembed-cache:/root/.cache/fastembed"]
     depends_on: [redis, mysql]
+
+  intelligence-worker:
+    build: {context: ., dockerfile: docker/Dockerfile}
+    # Phase 4: embedding + clustering queue (CPU batch inference, keep separate).
+    command: celery -A config.celery worker -l info -Q intelligence -c 2 --prefetch-multiplier 1
+    env_file: [.env]
+    volumes: ["fastembed-cache:/root/.cache/fastembed"]
+    depends_on: [redis, mysql, qdrant]
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    expose: ["6333"]
+    volumes: [qdrant-data:/qdrant/storage]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   telegram-worker:
     build: {context: ., dockerfile: docker/Dockerfile}
@@ -61,3 +80,5 @@ services:
 volumes:
   mysql-data:
   redis-data:
+  qdrant-data:
+  fastembed-cache:

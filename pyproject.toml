@@ -24,6 +24,11 @@ dependencies = [
   "pydantic==2.*",
   "structlog==25.*",
   "cryptography==44.*",
+  "rapidfuzz==3.14.*",
+  "datasketch==2.*",
+  "fastembed==0.8.*",
+  "qdrant-client==1.19.*",
+  "lingua-language-detector==2.*",
 ]
 
 [project.optional-dependencies]
@@ -62,7 +67,10 @@ ignore = ["S101"]
 DJANGO_SETTINGS_MODULE = "config.settings.local"
 pythonpath = ["."]
 asyncio_mode = "auto"
-markers = ["telegram_live: opt-in live Telegram read-only smoke test (needs real credentials)"]
+markers = [
+  "telegram_live: opt-in live Telegram read-only smoke test (needs real credentials)",
+  "embedding_live: opt-in live embedding model test (downloads HF model, needs network)",
+]
 
 [tool.pyright]
 typeCheckingMode = "basic"
