@@ -7,9 +7,9 @@ Bot publishing is out of scope for this phase.
 ## Environment setup
 
 ```bash
-TELEGRAM_API_ID=123456
-TELEGRAM_API_HASH=abcdef0123456789
-TELEGRAM_SESSION_STRING=1AaBbCc...   # user session string, env-only
+TELEGRAM_API_ID=<your-api-id>
+TELEGRAM_API_HASH=<your-api-hash>
+TELEGRAM_SESSION_STRING=<your-session-string>   # user session string, env-only
 TELEGRAM_ACCOUNT_KEY=default
 TELEGRAM_WORKER_CONCURRENCY=1
 ```
