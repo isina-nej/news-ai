@@ -128,7 +128,13 @@ class FetchContext:
 
 @dataclass
 class FetchedItem:
-    """Single item extracted from a source before normalization/persistence."""
+    """Single item extracted from a source before normalization/persistence.
+
+    Engagement counters are platform-neutral snapshots observed at fetch time.
+    ``None`` means the platform did not expose the metric (never conflated
+    with 0). ``source_updated_at`` carries the platform-native edit timestamp
+    (e.g. Telegram ``edit_date``); ``None`` means never edited / unknown.
+    """
 
     url: str
     title: str = ""
@@ -136,9 +142,17 @@ class FetchedItem:
     external_id: str | None = None
     canonical_url: str = ""
     published_at: datetime | None = None
+    source_updated_at: datetime | None = None
     author: str = ""
     language: str = "und"
     content_type: str | None = None
+    views: int | None = None
+    forwards: int | None = None
+    shares: int | None = None
+    reactions: int | None = None
+    replies: int | None = None
+    saves: int | None = None
+    reaction_breakdown: dict[str, int] = field(default_factory=dict)
     media: dict[str, Any] = field(default_factory=dict)
     raw_payload: dict[str, Any] = field(default_factory=dict)
     source_metadata: dict[str, Any] = field(default_factory=dict)

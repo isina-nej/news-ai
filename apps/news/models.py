@@ -92,6 +92,10 @@ class SourceItem(TimeStampedModel):
     )
     collected_at = models.DateTimeField(default=timezone.now)
     first_seen_at = models.DateTimeField(auto_now_add=True)
+    # Platform-native edit timestamp (e.g. Telegram edit_date). Never derived locally.
+    source_updated_at = models.DateTimeField(null=True, blank=True, default=None)
+    # Soft deletion marker (platform-confirmed only; absence in one poll never implies deletion).
+    source_deleted_at = models.DateTimeField(null=True, blank=True, default=None)
     raw_payload = models.JSONField(default=dict, blank=True)
     status = models.CharField(
         max_length=16, choices=SourceItemStatus.choices, default=SourceItemStatus.COLLECTED
@@ -162,6 +166,41 @@ class SourceItem(TimeStampedModel):
         return f"{self.source_id}#{ref}: {self.title[:60]}"
 
 
+class SourceItemRevision(models.Model):
+    """Immutable snapshot of a SourceItem's material state at observation time.
+
+    One row is created only when material fields actually changed
+    (title / raw_text / normalized_text / content_hash). The live
+    SourceItem row always carries the latest version; this table preserves
+    the history needed for corrections, novelty and republication decisions.
+    """
+
+    source_item = models.ForeignKey(SourceItem, on_delete=models.CASCADE, related_name="revisions")
+    revision_number = models.PositiveIntegerField()
+    source_updated_at = models.DateTimeField(null=True, blank=True, default=None)
+    observed_at = models.DateTimeField(default=timezone.now)
+    title = models.CharField(max_length=1024, blank=True, default="")
+    raw_text = models.TextField(blank=True, default="")
+    normalized_text = models.TextField(blank=True, default="")
+    content_hash = models.CharField(max_length=64, null=True, blank=True, default=None)
+    change_metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source_item", "revision_number"],
+                name="uniq_revision_item_number",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["source_item", "revision_number"]),
+        ]
+        ordering = ["revision_number"]
+
+    def __str__(self) -> str:
+        return f"rev{self.revision_number} of item {self.source_item_id}"
+
+
 class EngagementSnapshot(TimeStampedModel):
     """Point-in-time metrics. NULL = unknown platform value, never conflated with 0."""
 
@@ -176,13 +215,31 @@ class EngagementSnapshot(TimeStampedModel):
     saves = models.PositiveBigIntegerField(null=True, blank=True, default=None)
     raw_metrics = models.JSONField(default=dict, blank=True)
 
+    target_age_seconds = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Scheduled milestone bucket (e.g. 600, 1800, 3600). "
+        "NULL = ad-hoc/immediate capture, not a milestone.",
+    )
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=["source_item", "captured_at"], name="uniq_snap_item_captured"
             ),
+            # Milestone idempotency: same item + same scheduled milestone at most once.
+            # NULL target_age_seconds rows are ad-hoc and excluded from this constraint
+            # (MySQL treats NULLs as distinct, SQLite too).
+            models.UniqueConstraint(
+                fields=["source_item", "target_age_seconds"],
+                name="uniq_snap_item_target_age",
+            ),
         ]
-        indexes = [models.Index(fields=["source_item", "post_age_seconds"])]
+        indexes = [
+            models.Index(fields=["source_item", "post_age_seconds"]),
+            models.Index(fields=["source_item", "target_age_seconds"]),
+        ]
 
     def save(self, *args, **kwargs):
         if self.post_age_seconds is None and self.captured_at:

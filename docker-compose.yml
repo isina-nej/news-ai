@@ -41,7 +41,14 @@ services:
 
   worker:
     build: {context: ., dockerfile: docker/Dockerfile}
-    command: celery -A config.celery worker -l info
+    command: celery -A config.celery worker -l info -Q celery
+    env_file: [.env]
+    depends_on: [redis, mysql]
+
+  telegram-worker:
+    build: {context: ., dockerfile: docker/Dockerfile}
+    # Dedicated Telegram queue: concurrency 1 per account for sequential MTProto access.
+    command: celery -A config.celery worker -l info -Q telegram -c 1
     env_file: [.env]
     depends_on: [redis, mysql]
 

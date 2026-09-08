@@ -23,6 +23,7 @@ from apps.sources.adapters.http_client import SafeHttpClient, default_http_clien
 from apps.sources.adapters.registry import AdapterNotFoundError, AdapterRegistry, adapter_registry
 from apps.sources.adapters.rss import RSSSourceAdapter
 from apps.sources.adapters.rsshub import RSSHubAdapter
+from apps.sources.adapters.telegram import TelegramSourceAdapter
 
 # Register standard adapters for Phase 2
 adapter_registry.register(Platform.RSS, "rss", factory=RSSSourceAdapter)
@@ -31,6 +32,9 @@ adapter_registry.register(Platform.RSSHUB, "rsshub", factory=RSSHubAdapter)
 adapter_registry.register(Platform.RSSHUB, "", factory=RSSHubAdapter)
 adapter_registry.register(Platform.WEBSITE_HTML, "html", factory=HTMLSourceAdapter)
 adapter_registry.register(Platform.WEBSITE_HTML, "", factory=HTMLSourceAdapter)
+# Telegram user-session ingestion (Kurigram). adapter_type "telegram" explicit + platform fallback.
+adapter_registry.register(Platform.TELEGRAM, "telegram", factory=TelegramSourceAdapter)
+adapter_registry.register(Platform.TELEGRAM, "", factory=TelegramSourceAdapter)
 
 __all__ = [
     "AdapterError",
@@ -53,6 +57,7 @@ __all__ = [
     "SSRFError",
     "SafeHttpClient",
     "SourceAdapter",
+    "TelegramSourceAdapter",
     "TimeoutError",
     "adapter_registry",
     "default_http_client",

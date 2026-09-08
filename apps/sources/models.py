@@ -48,6 +48,11 @@ class Source(TimeStampedModel):
     last_success_at = models.DateTimeField(null=True, blank=True)
     last_failure_at = models.DateTimeField(null=True, blank=True)
     consecutive_failures = models.PositiveIntegerField(default=0)
+    # Stable platform-native peer id resolved after first contact
+    # (e.g. Telegram channel id). Non-secret; survives username renames.
+    platform_external_id = models.CharField(max_length=128, blank=True, default="")
+    # Runtime FloodWait/rate-limit cooldown; scheduler must skip while in future.
+    cooldown_until = models.DateTimeField(null=True, blank=True, default=None)
 
     class Meta:
         constraints = [
@@ -112,6 +117,7 @@ class FetchRun(models.Model):
     fetched_count = models.PositiveIntegerField(default=0)
     created_count = models.PositiveIntegerField(default=0)
     duplicate_count = models.PositiveIntegerField(default=0)
+    updated_count = models.PositiveIntegerField(default=0)
     rejected_count = models.PositiveIntegerField(default=0)
     error_type = models.CharField(max_length=64, blank=True, default="")
     error_message = models.TextField(blank=True, default="")
@@ -127,5 +133,71 @@ class FetchRun(models.Model):
     def __str__(self) -> str:
         return (
             f"FetchRun #{self.pk} {self.source.name} [{self.status}] "
-            f"+{self.created_count}d{self.duplicate_count}"
+            f"+{self.created_count}u{self.updated_count}d{self.duplicate_count}"
+        )
+
+
+class SourceCheckpoint(models.Model):
+    """Persistent per-source ingestion cursor.
+
+    One row per (source, adapter). The cursor advances ONLY after items
+    have been persisted successfully (fetch -> persist -> advance).
+    A crash between fetch and advance is safe: the next run re-reads with
+    overlap and idempotent persistence drops true duplicates.
+    """
+
+    source = models.ForeignKey(Source, on_delete=models.CASCADE, related_name="checkpoints")
+    adapter = models.CharField(max_length=32, default="telegram")
+    # Telegram semantics: highest message id observed (inclusive).
+    last_external_id = models.CharField(max_length=512, null=True, blank=True, default=None)
+    last_published_at = models.DateTimeField(null=True, blank=True, default=None)
+    state = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Adapter-scoped cursor state, e.g. {'last_message_id': 1234}. "
+        "Never secrets. Small and JSON-serializable.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "adapter"], name="uniq_checkpoint_source_adapter"
+            ),
+        ]
+        indexes = [models.Index(fields=["source", "adapter"])]
+
+    def __str__(self) -> str:
+        return f"checkpoint {self.source_id}/{self.adapter} @{self.last_external_id}"
+
+
+class EngagementTrackingState(models.Model):
+    """Lean per-item engagement milestone scheduler state.
+
+    Avoids thousands of individual Celery ETA tasks: a periodic scheduler
+    scans due rows in batches. ``next_due_at`` is the wall-clock time the
+    milestone becomes observable; ``next_target_age_seconds`` is the metric
+    bucket (10m/30m/60m/...). ``active=False`` stops tracking (e.g. max age
+    reached or item deleted).
+    """
+
+    source_item = models.OneToOneField(
+        "news.SourceItem", on_delete=models.CASCADE, related_name="engagement_tracking"
+    )
+    next_due_at = models.DateTimeField(null=True, blank=True, default=None, db_index=True)
+    next_target_age_seconds = models.PositiveIntegerField(null=True, blank=True, default=None)
+    active = models.BooleanField(default=True)
+    last_attempt_at = models.DateTimeField(null=True, blank=True, default=None)
+    failure_count = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["active", "next_due_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"tracking item={self.source_item_id} "
+            f"next={self.next_target_age_seconds}s active={self.active}"
         )

@@ -62,6 +62,7 @@ ignore = ["S101"]
 DJANGO_SETTINGS_MODULE = "config.settings.local"
 pythonpath = ["."]
 asyncio_mode = "auto"
+markers = ["telegram_live: opt-in live Telegram read-only smoke test (needs real credentials)"]
 
 [tool.pyright]
 typeCheckingMode = "basic"

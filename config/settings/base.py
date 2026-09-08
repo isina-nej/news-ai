@@ -73,6 +73,13 @@ CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default="redis://redis:6379/1")
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+# Dedicated telegram queue: telegram tasks route here; run a worker with
+# `-Q telegram -c 1` for single-account sequential MTProto access.
+CELERY_TASK_ROUTES = {
+    "apps.sources.tasks.fetch_telegram_source_task": {"queue": "telegram"},
+    "apps.sources.tasks.refresh_telegram_engagement_task": {"queue": "telegram"},
+}
+CELERY_TASK_DEFAULT_QUEUE = "celery"
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -91,6 +98,13 @@ FEATURE_FLAGS = {
 RSSHUB_BASE_URL = env("RSSHUB_BASE_URL", default="http://rsshub:1200")
 RSSHUB_TRUSTED_HOSTS = env.list("RSSHUB_TRUSTED_HOSTS", default=["rsshub"])
 SESSION_ENCRYPTION_KEY = env("SESSION_ENCRYPTION_KEY", default="")
+# Telegram user-session ingestion (Kurigram/MTProto). Env-only; never DB.
+TELEGRAM_API_ID = env.int("TELEGRAM_API_ID", default=0)
+TELEGRAM_API_HASH = env("TELEGRAM_API_HASH", default="")
+TELEGRAM_SESSION_STRING = env("TELEGRAM_SESSION_STRING", default="")
+TELEGRAM_ACCOUNT_KEY = env("TELEGRAM_ACCOUNT_KEY", default="default")
+# Dedicated worker concurrency per Telegram account (default 1).
+TELEGRAM_WORKER_CONCURRENCY = env.int("TELEGRAM_WORKER_CONCURRENCY", default=1)
 
 LOGGING = {
     "version": 1,
