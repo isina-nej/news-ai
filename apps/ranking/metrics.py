@@ -37,6 +37,46 @@ register(MetricSpec("reactions", "Reactions / likes"))
 register(MetricSpec("replies", "Replies / comments"))
 register(MetricSpec("saves", "Bookmarks / saves"))
 # Derived metrics — no column, computed from snapshots.
+register(
+    MetricSpec(
+        "view_percentile",
+        "Views relative percentile against baseline",
+        is_derived=True,
+        unit="0..1",
+    )
+)
+register(
+    MetricSpec(
+        "forward_percentile",
+        "Forwards relative percentile against baseline",
+        is_derived=True,
+        unit="0..1",
+    )
+)
+register(
+    MetricSpec(
+        "share_percentile",
+        "Shares relative percentile against baseline",
+        is_derived=True,
+        unit="0..1",
+    )
+)
+register(
+    MetricSpec(
+        "reaction_percentile",
+        "Reactions relative percentile against baseline",
+        is_derived=True,
+        unit="0..1",
+    )
+)
+register(
+    MetricSpec(
+        "reply_percentile",
+        "Replies relative percentile against baseline",
+        is_derived=True,
+        unit="0..1",
+    )
+)
 register(MetricSpec("view_velocity", "Views per hour in bucket", is_derived=True, unit="count/h"))
 register(MetricSpec("share_velocity", "Shares per hour in bucket", is_derived=True, unit="count/h"))
 register(

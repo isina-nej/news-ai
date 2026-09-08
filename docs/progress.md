@@ -47,3 +47,23 @@
   - External live OpenAI/LiteLLM call skipped (no live credentials in sandbox).
 - Skipped Live Integrations:
   - Live OpenAI-compatible provider calls.
+
+---
+
+## Phase 6 — Ranking, Baselines, Selection
+- Status: Completed (offline/CI regression green)
+- SHA: Pending commit
+- CI Run: Pending push (blocked on external GitHub credentials in sandbox)
+- Tests: 164 passed, 1 skipped
+- Migrations: none
+- Important Architecture Decisions:
+  - Source-relative percentiles against robust `SourceBaseline` (median, percentiles, fallback hierarchy) eliminate source-size bias.
+  - Momentum combines `relative_performance`, velocity, acceleration, saturating multi-source spread, and cross-source consistency.
+  - `CredibilityGate` holds low credibility (<0.25), unresolved conflicts, and single low-trust source rumors.
+  - Freshness uses half-life decay (default 24 hours).
+  - Selection applies anti-repeat, topic saturation, repetition penalties, and correction boosts.
+  - `ranking_backtest` command replays decisions without live publishing.
+- Known Limitations:
+  - Baselines need real engagement history before becoming meaningful; fallback uses deterministic defaults.
+- Skipped Live Integrations:
+  - None required for Phase 6.
