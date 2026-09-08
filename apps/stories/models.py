@@ -221,6 +221,20 @@ class ClusteringDecisionType(models.TextChoices):
     MERGE = "merge", "Merge two stories"
 
 
+class StoryRelationship(models.TextChoices):
+    """Future inter-story relationship labels (Phase 4.1 readiness, no AI yet).
+
+    SAME_EVENT/MATERIAL_UPDATE describe items that belong together;
+    RELATED_EVENT/UNRELATED describe story pairs that must stay split but
+    may be linked for navigation. No classifier writes these yet.
+    """
+
+    SAME_EVENT = "same_event", "Same event"
+    MATERIAL_UPDATE = "material_update", "Material update of the event"
+    RELATED_EVENT = "related_event", "Related but distinct event"
+    UNRELATED = "unrelated", "Unrelated"
+
+
 class ClusteringDecision(models.Model):
     """Audit record for every story-assignment decision (replay/backtest/AI-judge eval)."""
 
@@ -247,6 +261,15 @@ class ClusteringDecision(models.Model):
     method = models.CharField(
         max_length=32, blank=True, default="", help_text="e.g. lexical/semantic/evidence."
     )
+    # Future relationship label for this decision (Phase 5 AI fills it in;
+    # deterministic path leaves it blank, never guesses).
+    relationship = models.CharField(
+        max_length=16,
+        choices=StoryRelationship.choices,
+        blank=True,
+        default="",
+        help_text="Inter-story relationship label, reserved for Phase 5+ classifiers.",
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -254,6 +277,7 @@ class ClusteringDecision(models.Model):
             models.Index(fields=["source_item", "-created_at"]),
             models.Index(fields=["candidate_story", "-created_at"]),
             models.Index(fields=["algorithm_version", "decision", "-created_at"]),
+            models.Index(fields=["relationship", "-created_at"]),
         ]
 
     def __str__(self) -> str:

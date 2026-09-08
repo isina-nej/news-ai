@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from django.db import transaction
-from django.utils import timezone
 
 from apps.ops.models import AuditLog
 from apps.stories.models import ClusteringDecision, Story, StoryMembership, StoryStatus
@@ -71,8 +70,6 @@ def merge_stories(
         from apps.stories.services.clustering import story_clustering_service
 
         story_clustering_service._refresh_story_stats(target)
-        target.latest_source_update_at = timezone.now()
-        target.save(update_fields=["latest_source_update_at", "updated_at"])
         return {"status": "merged", "from": source.pk, "to": target.pk, "moved": moved}
 
 

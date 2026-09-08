@@ -64,7 +64,7 @@ class RankingWeight(TimeStampedModel):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=Q(value__gte=Decimal("0"), value__lte=Decimal("1")),
+                condition=Q(value__gte=Decimal("0"), value__lte=Decimal("1")),
                 name="chk_rankingweight_value_0_1",
             ),
         ]
@@ -94,19 +94,19 @@ class ScoreRecord(TimeStampedModel):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=Q(news_value__gte=0, news_value__lte=1),
+                condition=Q(news_value__gte=0, news_value__lte=1),
                 name="chk_scorerecord_news_value_0_1",
             ),
             models.CheckConstraint(
-                check=Q(audience_fit__gte=0, audience_fit__lte=1),
+                condition=Q(audience_fit__gte=0, audience_fit__lte=1),
                 name="chk_scorerecord_audience_fit_0_1",
             ),
             models.CheckConstraint(
-                check=Q(momentum__gte=0, momentum__lte=1),
+                condition=Q(momentum__gte=0, momentum__lte=1),
                 name="chk_scorerecord_momentum_0_1",
             ),
             models.CheckConstraint(
-                check=Q(final_score__gte=0, final_score__lte=1),
+                condition=Q(final_score__gte=0, final_score__lte=1),
                 name="chk_scorerecord_final_0_1",
             ),
         ]
@@ -174,7 +174,7 @@ class SourceBaseline(TimeStampedModel):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=Q(confidence__gte=0, confidence__lte=1),
+                condition=Q(confidence__gte=0, confidence__lte=1),
                 name="chk_baseline_confidence_0_1",
             ),
         ]
@@ -249,12 +249,12 @@ class DecisionLog(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=Q(is_exploration=False)
+                condition=Q(is_exploration=False)
                 | (Q(exploration_probability__gte=0) & Q(exploration_probability__lte=1)),
                 name="chk_decision_expl_prob_0_1",
             ),
             models.CheckConstraint(
-                check=Q(predicted_reward__isnull=True)
+                condition=Q(predicted_reward__isnull=True)
                 | (Q(predicted_reward__gte=0) & Q(predicted_reward__lte=1)),
                 name="chk_decision_predicted_reward_0_1",
             ),

@@ -44,6 +44,119 @@ MATCH_METHOD_MAP = {
 }
 
 
+def _min_time_gap_hours(item_published, member_published_list) -> float | None:
+    """Minimum |item - member| gap in hours; None when no timestamps exist."""
+    if item_published is None:
+        return None
+    gaps: list[float] = []
+    for published in member_published_list:
+        if published is None:
+            continue
+        try:
+            gaps.append(abs((item_published - published).total_seconds()) / 3600.0)
+        except Exception:  # noqa: S112 — skip unparseable timestamp
+            continue
+    return min(gaps) if gaps else None
+
+
+def _valid_member_vectors(story, provider, *, cap: int = 8) -> tuple[list[list[float]], list[int]]:
+    """Embed up to `cap` current members, skipping stale/failed/mismatched rows.
+
+    A member vector is valid only when its ItemEmbedding row is INDEXED, the
+    model identity matches the active provider, dimensions match, and the
+    stored content hash equals the live clustering input hash (content change
+    => stale, never silently reused).
+    """
+    from apps.stories.models import ItemEmbedding
+    from apps.stories.services.embeddings import embedding_identity
+    from apps.stories.services.representation import build_clustering_text, clustering_input_hash
+
+    ident = embedding_identity()
+    try:
+        expected_dim = int(provider.dimension) if hasattr(provider, "dimension") else None
+    except Exception:
+        expected_dim = None
+    if expected_dim is not None:
+        ident["dimension"] = expected_dim
+    vectors: list[list[float]] = []
+    member_ids: list[int] = []
+    memberships = list(
+        story.memberships.filter(is_current=True)
+        .select_related("source_item")
+        .order_by("-is_primary", "-source_item__source_updated_at", "-added_at", "pk")[:cap]
+    )
+    for membership in memberships:
+        member_item = membership.source_item
+        try:
+            row = ItemEmbedding.objects.filter(source_item=member_item).first()
+            if row is None or row.status != "indexed":
+                continue
+            if str(row.provider) != str(ident.get("provider", "")):
+                continue
+            if str(row.model) != str(ident.get("model", "")):
+                continue
+            if str(row.model_version) != str(ident.get("model_version", "")):
+                continue
+            if int(row.dimension) != int(ident.get("dimension", row.dimension)):
+                continue
+            live_hash = clustering_input_hash(member_item.title, member_item.normalized_text)
+            if row.content_hash != live_hash:
+                try:
+                    ItemEmbedding.objects.filter(pk=row.pk).update(status="stale")
+                except Exception as mark_exc:  # noqa: S110 — stale mark is best-effort
+                    logger.debug("stale status mark failed: %s", mark_exc)
+                continue
+            text = build_clustering_text(member_item.title, member_item.normalized_text)
+            vector = provider.embed([text])[0]
+            if expected_dim is not None and len(vector) != expected_dim:
+                continue
+            vectors.append(vector)
+            member_ids.append(member_item.pk)
+        except Exception:  # noqa: S112 — skip unembeddable member
+            continue
+    return vectors, member_ids
+
+
+PRIMARY_POLICY_VERSION = "primary-v1"
+PRIMARY_RECENCY_BAND_HOURS = 6.0
+
+
+def _effective_member_time(item) -> Any | None:
+    """Freshness signal for one member: max(published_at, source_updated_at)."""
+    candidates = [t for t in (item.published_at, item.source_updated_at) if t is not None]
+    if not candidates:
+        return None
+    try:
+        return max(candidates)
+    except TypeError:
+        return candidates[0]
+
+
+def _primary_rank_key(membership) -> tuple:
+    """Deterministic primary rank:
+    1. valid publication timestamp present (has_time = 0; missing = 1)
+    2. earliest publication (published ascending)
+    3. bounded source reliability / trust (-blended descending)
+    4. content completeness (-length descending)
+    5. deterministic item.pk tie-breaker
+    """
+    item = membership.source_item
+    published = item.published_at
+    has_time = 0 if published else 1
+    try:
+        trust = float(getattr(item.source, "trust_score", 0.5) or 0.5)
+    except Exception:
+        trust = 0.5
+    try:
+        reliability = float(getattr(item.source, "reliability_score", 0.5) or 0.5)
+    except Exception:
+        reliability = 0.5
+    blended = round((trust + reliability) / 2.0, 4)
+    length = -(len(item.normalized_text or ""))
+    safe_pub = published if published is not None else timezone.now()
+    return (has_time, safe_pub, -blended, length, item.pk or 0)
+
+
 class StoryClusteringService:
     def __init__(self) -> None:
         self._provider = None
@@ -111,7 +224,14 @@ class StoryClusteringService:
         meta["cluster_meta"] = cluster_meta
         story.metadata = meta
 
-    def _refresh_centroid(self, story: Story, vectors: list[list[float]]) -> None:
+    def _refresh_centroid(
+        self,
+        story: Story,
+        vectors: list[list[float]],
+        *,
+        member_ids: list[int] | None = None,
+        ident: dict | None = None,
+    ) -> None:
         if not vectors:
             return
         center = centroid(vectors, cap=8)
@@ -119,6 +239,14 @@ class StoryClusteringService:
             return
         meta = dict(story.metadata or {})
         meta["centroid"] = center
+        if ident:
+            meta["centroid_provider"] = str(ident.get("provider", ""))
+            meta["centroid_model"] = str(ident.get("model", ""))
+            meta["centroid_model_version"] = str(ident.get("model_version", ""))
+        meta["centroid_dimension"] = len(center)
+        meta["centroid_member_count"] = len(member_ids) if member_ids is not None else len(vectors)
+        if member_ids:
+            meta["centroid_member_ids"] = member_ids[:8]
         meta["centroid_updated_at"] = timezone.now().isoformat()
         story.metadata = meta
 
@@ -161,13 +289,20 @@ class StoryClusteringService:
             logger.warning("embedding failed for item %s: %s", item.pk, exc)
             item_vector = None
 
-        # Candidates (bounded union). Exclude the item's own story (already
-        # clustered reruns must stay skipped, not self-matched).
+        # Candidates (bounded union with observability counts). Exclude the
+        # item's own story (already clustered reruns stay skipped, not self-matched).
+        candidate_result = cand.generate_candidates(
+            item_text=clustering_text,
+            item_meta=item_meta,
+            item_vector=item_vector,
+            item_provider=str(ident.get("provider", "")),
+            item_model=str(ident.get("model", "")),
+            item_model_version=str(ident.get("model_version", "")),
+        )
+        candidate_counts = candidate_result["counts"]
         stories = [
             story
-            for story in cand.generate_candidates(
-                item_text=clustering_text, item_meta=item_meta, item_vector=item_vector
-            )
+            for story in candidate_result["candidates"]
             if story.pk != getattr(item.story, "pk", None)
         ]
         if item_mh is not None:
@@ -297,6 +432,7 @@ class StoryClusteringService:
                 threshold_version=threshold_version,
                 duration_ms=int((time.monotonic() - started) * 1000),
                 correlation_id=correlation_id,
+                candidate_counts=candidate_counts,
             )
         if decision == "ambiguous":
             self._log_decision(
@@ -307,6 +443,7 @@ class StoryClusteringService:
                 algorithm_version,
                 threshold_version,
                 ident,
+                candidate_counts=candidate_counts,
             )
             return self._create_story(
                 item,
@@ -322,7 +459,14 @@ class StoryClusteringService:
                 ambiguous_from=best,
             )
         self._log_decision(
-            item, best["story"], "new_story", best, algorithm_version, threshold_version, ident
+            item,
+            best["story"],
+            "new_story",
+            best,
+            algorithm_version,
+            threshold_version,
+            ident,
+            candidate_counts=candidate_counts,
         )
         return self._create_story(
             item,
@@ -340,7 +484,15 @@ class StoryClusteringService:
     # -- assignment helpers ----------------------------------------------
 
     def _log_decision(
-        self, item, story, decision, best, algorithm_version, threshold_version, ident
+        self,
+        item,
+        story,
+        decision,
+        best,
+        algorithm_version,
+        threshold_version,
+        ident,
+        candidate_counts: dict | None = None,
     ) -> None:
 
         ClusteringDecision.objects.create(
@@ -352,6 +504,7 @@ class StoryClusteringService:
                 "features": best["features"],
                 "components": best["components"],
                 "veto": best.get("veto"),
+                "candidate_counts": dict(candidate_counts or {}),
             },
             algorithm_version=algorithm_version,
             threshold_version=threshold_version,
@@ -393,6 +546,7 @@ class StoryClusteringService:
         threshold_version,
         duration_ms,
         correlation_id,
+        candidate_counts: dict | None = None,
     ) -> dict[str, Any]:
         from apps.stories.services import vector_store
 
@@ -415,13 +569,16 @@ class StoryClusteringService:
                 if isinstance(item.raw_payload, dict)
                 else None
             )
+            time_gap = _min_time_gap_hours(
+                item.published_at, [m.source_item.published_at for m in members]
+            )
             label, score, evidence = classify_membership(
                 item_text=item.normalized_text or "",
                 item_meta=item_meta,
                 forward_origin=fwd if isinstance(fwd, dict) else None,
                 story_texts=story_texts,
                 story_urls=story_urls,
-                time_gap_hours=None,
+                time_gap_hours=time_gap,
             )
             membership = StoryMembership.objects.create(
                 story=locked_story,
@@ -437,12 +594,20 @@ class StoryClusteringService:
                     "veto": best.get("veto"),
                     "evidence": evidence,
                     "algorithm_version": algorithm_version,
+                    "candidate_counts": dict(candidate_counts or {}),
                 },
             )
             item.story = locked_story
             item.save(update_fields=["story", "updated_at"])
             self._log_decision(
-                item, locked_story, "match", best, algorithm_version, threshold_version, ident
+                item,
+                locked_story,
+                "match",
+                best,
+                algorithm_version,
+                threshold_version,
+                ident,
+                candidate_counts=candidate_counts,
             )
             ClusteringDecision.objects.filter(
                 source_item=item, candidate_story=locked_story, decision="ambiguous"
@@ -463,6 +628,9 @@ class StoryClusteringService:
                     point_id=vector_store.point_id_for_item(item.pk),
                     vector=item_vector,
                     payload={"story_id": locked_story.pk, "source_item_id": item.pk},
+                    provider=str(ident.get("provider", "")),
+                    model=str(ident.get("model", "")),
+                    model_version=str(ident.get("model_version", "")),
                 )
                 from apps.stories.models import ItemEmbedding as ItemEmbeddingModel
 
@@ -552,7 +720,7 @@ class StoryClusteringService:
                 logger.warning("aux persist failed for item %s: %s", item.pk, exc)
             self._refresh_story_stats(story)
             if item_vector:
-                self._refresh_centroid(story, [item_vector])
+                self._refresh_centroid(story, [item_vector], member_ids=[item.pk], ident=ident)
                 story.save(update_fields=["metadata", "updated_at"])
         try:
             if item_vector:
@@ -560,6 +728,9 @@ class StoryClusteringService:
                     point_id=vector_store.point_id_for_item(item.pk),
                     vector=item_vector,
                     payload={"story_id": story.pk, "source_item_id": item.pk},
+                    provider=str(ident.get("provider", "")),
+                    model=str(ident.get("model", "")),
+                    model_version=str(ident.get("model_version", "")),
                 )
                 from apps.stories.models import ItemEmbedding as ItemEmbeddingModel
 
@@ -607,50 +778,72 @@ class StoryClusteringService:
         members = list(story.memberships.filter(is_current=True).select_related("source_item")[:8])
         texts = [m.source_item.normalized_text for m in members if m.source_item.normalized_text]
         self._refresh_story_rep(story, representative_texts=texts)
-        vectors: list[list[float]] = []
-        if item_vector:
-            vectors.append(item_vector)
+        # Real centroid from up to 8 valid current-member vectors (primary first).
+        # Single-member stories legitimately equal that member's vector.
+        vectors, member_ids = _valid_member_vectors(story, self.provider, cap=8)
+        if item_vector and item.pk not in member_ids:
+            vectors.insert(0, item_vector)
+            member_ids.insert(0, item.pk)
         try:
-            center = centroid(vectors, cap=8) if vectors else None
-            if center:
-                meta = dict(story.metadata or {})
-                meta["centroid"] = center
-                story.metadata = meta
+            self._refresh_centroid(story, vectors, member_ids=member_ids, ident=ident)
         except Exception as exc:  # noqa: S110 — centroid is auxiliary
             logger.debug("centroid refresh failed: %s", exc)
         story.save(update_fields=["metadata", "updated_at"])
 
     def _refresh_story_stats(self, story: Story) -> None:
-        members = list(story.memberships.filter(is_current=True).select_related("source_item"))
-        sources = {m.source_item.source_id for m in members}
-        story.observed_source_count = len(sources)
-        labels = [m.independence for m in members]
-        _, independent, version = aggregate_counts(labels)
+        from apps.stories.services.independence import policy as indep_policy
+
+        members = list(
+            story.memberships.filter(is_current=True).select_related(
+                "source_item", "source_item__source"
+            )
+        )
+        # Distinct sources only: one source with N items counts once (4.1.4).
+        by_source: dict[int, list] = {}
+        for m in members:
+            by_source.setdefault(m.source_item.source_id, []).append(m)
+        story.observed_source_count = len(by_source)
+        # Per-source label: independent wins, then unknown per policy, else copy.
+        per_source_labels: list[str] = []
+        for _source_id, memberships in by_source.items():
+            labels = [m.independence for m in memberships]
+            if "independent" in labels:
+                per_source_labels.append("independent")
+            elif "unknown" in labels:
+                per_source_labels.append("unknown")
+            else:
+                per_source_labels.append("likely_copy")
+        _, independent, version = aggregate_counts(per_source_labels, unknown_policy=indep_policy())
         story.independent_source_count = independent
         meta = dict(story.metadata or {})
         meta["independence_version"] = version
+        meta["primary_policy_version"] = PRIMARY_POLICY_VERSION
         story.metadata = meta
 
-        # Primary: earliest reliable publication, then content completeness.
-        def _rank(m):
-            item = m.source_item
-            published = item.published_at
-            has_time = 0 if published else 1
-            length = -(len(item.normalized_text or ""))
-            return (has_time, published or timezone.now(), length)
-
+        # Primary (deterministic, versioned): valid publication time first,
+        # then bounded source reliability, then earliest publication, then
+        # content completeness. Reliability is a tie-break within a 6h
+        # recency band so a trusted-but-much-later source never steals primary.
         if members:
-            primary_membership = sorted(members, key=_rank)[0]
+            primary_membership = sorted(members, key=_primary_rank_key)[0]
             story.primary_item = primary_membership.source_item
             for m in members:
                 want_primary = m.pk == primary_membership.pk
                 if m.is_primary != want_primary:
                     m.is_primary = want_primary
                     m.save(update_fields=["is_primary", "updated_at"])
+        # Freshness = max(published_at, source_updated_at) over valid members.
+        # Telegram edits advance freshness; admin saves never touch this path.
+        effective_times = [
+            _effective_member_time(m.source_item)
+            for m in members
+            if _effective_member_time(m.source_item) is not None
+        ]
         pubs = [m.source_item.published_at for m in members if m.source_item.published_at]
         if pubs:
             story.first_published_at = min(pubs)
-            story.latest_source_update_at = max(pubs)
+        if effective_times:
+            story.latest_source_update_at = max(effective_times)
         story.save(
             update_fields=[
                 "observed_source_count",

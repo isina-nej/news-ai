@@ -122,13 +122,24 @@ def embed_item_task(self, source_item_id: int) -> dict[str, Any]:
         },
     )
     try:
-        vector_store.ensure_collection(len(vector))
+        vector_store.ensure_collection(
+            len(vector),
+            provider=str(ident["provider"]),
+            model=str(ident["model"]),
+            model_version=str(ident["model_version"]),
+        )
         vector_store.upsert_point(
             point_id=vector_store.point_id_for_item(item.pk),
             vector=vector,
             payload={"source_item_id": item.pk},
+            provider=str(ident["provider"]),
+            model=str(ident["model"]),
+            model_version=str(ident["model_version"]),
         )
         ItemEmbedding.objects.filter(source_item=item).update(status="indexed")
+    except ValueError:
+        ItemEmbedding.objects.filter(source_item=item).update(status="failed")
+        raise
     except Exception as exc:
         ItemEmbedding.objects.filter(source_item=item).update(status="failed")
         countdown = int((2**self.request.retries) * 30 + random.uniform(2, 8))  # noqa: S311

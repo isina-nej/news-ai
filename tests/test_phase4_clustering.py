@@ -67,11 +67,17 @@ def test_clustering_text_versioned_and_deterministic():
 
 
 def test_language_detection_separates_signals():
+    pytest.importorskip("lingua", reason="lingua wheel absent offline")
     en = detect_language("OpenAI unveiled its new flagship model GPT-X with faster reasoning.")
     fa = detect_language("تیم ملی در فینال با نتیجه ۲ بر ۱ قهرمان شد و هواداران خوشحال شدند.")
     short = detect_language("OK")
     assert en["language"] == "en" and en["reliable"] is True
     assert fa["language"] == "fa" and fa["reliable"] is True
+    assert short == {"language": "und", "confidence": 0.0, "reliable": False}
+
+
+def test_language_detection_degrades_gracefully_without_wheel():
+    short = detect_language("OK")
     assert short == {"language": "und", "confidence": 0.0, "reliable": False}
 
 
@@ -95,6 +101,7 @@ def test_rapidfuzz_features_normalized():
 
 
 def test_minhash_versioned_and_jaccard():
+    pytest.importorskip("datasketch", reason="datasketch/scipy wheel absent offline")
     mh1 = lex.minhash_for_text("the quick brown fox jumps over", num_perm=128, scheme="affine32")
     mh2 = lex.minhash_for_text("the quick brown fox jumps over", num_perm=128, scheme="affine32")
     assert lex.minhash_jaccard(mh1, mh2) == 1.0
@@ -142,14 +149,18 @@ def test_candidate_generation_bounded_and_time_filtered():
         latest_source_update_at=now - timedelta(days=30),
         metadata={"cluster_meta": {"urls": [], "domains": []}, "cluster_rep": {"shingles": []}},
     )
-    cands = cand.generate_candidates(
+    result = cand.generate_candidates(
         item_text="Fresh event X happened today downtown.",
         item_meta=extract_metadata("Fresh event X", "Fresh event X happened today downtown."),
     )
+    cands = result["candidates"]
+    counts = result["counts"]
     ids = {s.pk for s in cands}
     assert story.pk in ids
     assert old_story.pk not in ids
     assert len(cands) <= cand.max_candidates()
+    assert counts["eligible_candidate_count"] == len(cands)
+    assert counts["recency_candidate_count"] >= 1
 
 
 # --- scoring / veto / thresholds ---
@@ -380,8 +391,12 @@ def test_forward_origin_flagged_likely_copy_but_preserved():
 def test_independent_paraphrases_counted():
     observed, independent, version = aggregate_counts(["independent", "independent", "unknown"])
     assert observed == 3
-    assert independent == 2
-    assert version == "indep-v1"
+    assert independent == 2  # conservative default: UNKNOWN excluded
+    assert version.startswith("indep-v1")
+    observed_inc, independent_inc, _ = aggregate_counts(
+        ["independent", "independent", "unknown"], unknown_policy="include"
+    )
+    assert (observed_inc, independent_inc) == (3, 3)
 
 
 def test_independent_counts_on_story_are_copy_aware():
@@ -479,6 +494,7 @@ def test_qdrant_unavailable_marks_failed_and_rebuild_possible():
 
 
 def test_minhash_persisted_versioned_not_pickle():
+    pytest.importorskip("datasketch", reason="datasketch/scipy wheel absent offline")
     from apps.stories.services import clustering as clu_mod
 
     source = _source()
@@ -511,3 +527,310 @@ def test_benchmark_evaluation_prefers_precision():
         "false_merge_rate",
         "false_split_rate",
     }
+
+
+# --- Phase 4.1 correctness ---
+
+
+def test_candidate_eligibility_gate_rejects_qdrant_bypass():
+    from apps.stories.services import candidates as cand_mod
+
+    source = _source()
+    now = timezone.now()
+    recent_item = _item(source, "Eligible story seed", "Eligible story seed body here.")
+    good = Story.objects.create(
+        canonical_title="Eligible story seed",
+        status=StoryStatus.ACTIVE,
+        first_published_at=now - timedelta(hours=1),
+        latest_source_update_at=now - timedelta(hours=1),
+        metadata={"cluster_meta": {"urls": [], "domains": []}, "cluster_rep": {"shingles": []}},
+    )
+    StoryMembership.objects.create(story=good, source_item=recent_item, is_current=True)
+    merged = Story.objects.create(
+        canonical_title="Merged story",
+        status=StoryStatus.MERGED,
+        merged_into=good,
+        first_published_at=now - timedelta(hours=1),
+        latest_source_update_at=now - timedelta(hours=1),
+        metadata={"cluster_meta": {"urls": [], "domains": []}, "cluster_rep": {"shingles": []}},
+    )
+    archived = Story.objects.create(
+        canonical_title="Archived story",
+        status=StoryStatus.ARCHIVED,
+        first_published_at=now - timedelta(hours=1),
+        latest_source_update_at=now - timedelta(hours=1),
+        metadata={"cluster_meta": {"urls": [], "domains": []}, "cluster_rep": {"shingles": []}},
+    )
+    old = Story.objects.create(
+        canonical_title="Old active story",
+        status=StoryStatus.ACTIVE,
+        first_published_at=now - timedelta(days=30),
+        latest_source_update_at=now - timedelta(days=30),
+        metadata={"cluster_meta": {"urls": [], "domains": []}, "cluster_rep": {"shingles": []}},
+    )
+    assert cand_mod.is_candidate_eligible(good, now=now) is True
+    assert cand_mod.is_candidate_eligible(merged, now=now) is False
+    assert cand_mod.is_candidate_eligible(archived, now=now) is False
+    assert cand_mod.is_candidate_eligible(old, now=now) is False
+
+    with patch.object(cand_mod, "vector_candidates", return_value=[old, merged, archived, good]):
+        result = cand_mod.generate_candidates(
+            item_text="vector-only candidate",
+            item_meta={},
+            item_vector=[1.0, 0.0],
+            now=now,
+        )
+    assert [story.pk for story in result["candidates"]] == [good.pk]
+    assert result["counts"]["vector_candidate_count"] == 4
+    assert result["counts"]["eligible_candidate_count"] == 1
+
+
+def test_centroid_real_members_with_metadata():
+    from apps.stories.services import clustering as clu_mod
+    from apps.stories.services.embeddings import FakeEmbeddingProvider, centroid
+    from apps.stories.services.representation import clustering_input_hash
+
+    provider = FakeEmbeddingProvider(4)
+    source = _source()
+    items = [
+        _item(source, "Centroid alpha", "one alpha"),
+        _item(source, "Centroid beta", "two beta"),
+        _item(source, "Centroid gamma", "three gamma"),
+    ]
+    story = Story.objects.create(
+        canonical_title="Centroid regression story",
+        status=StoryStatus.ACTIVE,
+        primary_item=items[0],
+        latest_source_update_at=timezone.now(),
+    )
+    for index, item in enumerate(items):
+        StoryMembership.objects.create(
+            story=story,
+            source_item=item,
+            is_primary=index == 0,
+            is_current=True,
+        )
+        item.story = story
+        item.save(update_fields=["story", "updated_at"])
+        ItemEmbedding.objects.create(
+            source_item=item,
+            content_hash=clustering_input_hash(item.title, item.normalized_text),
+            provider="fake",
+            model="fake-hash-bucket",
+            model_version="fake-v1",
+            dimension=4,
+            status="indexed",
+            point_id=f"item-{item.pk}",
+        )
+
+    vectors = [provider.embed([f"{item.title}\n\n{item.normalized_text}"])[0] for item in items]
+    expected = centroid(vectors)
+    assert expected is not None and expected != vectors[-1]
+    ident = {
+        "provider": "fake",
+        "model": "fake-hash-bucket",
+        "model_version": "fake-v1",
+        "dimension": 4,
+    }
+    with (
+        patch.object(clu_mod.story_clustering_service, "_provider", provider, create=True),
+        patch("apps.stories.services.clustering.embedding_identity", return_value=ident),
+    ):
+        clu_mod.story_clustering_service._after_membership_change(
+            story, item_vector=None, item_mh=None, ident=ident, item=items[-1]
+        )
+
+    story.refresh_from_db()
+    meta = story.metadata or {}
+    assert meta["centroid"] == expected
+    assert meta["centroid"] != vectors[-1]
+    assert meta["centroid_provider"] == "fake"
+    assert meta["centroid_model"] == "fake-hash-bucket"
+    assert meta["centroid_model_version"] == "fake-v1"
+    assert meta["centroid_dimension"] == 4
+    assert meta["centroid_member_count"] == 3
+    assert set(meta["centroid_member_ids"]) == {item.pk for item in items}
+    assert meta["centroid_updated_at"]
+
+
+def test_centroid_rejects_stale_failed_model_and_dimension_mismatches():
+    from apps.stories.services.clustering import _valid_member_vectors
+    from apps.stories.services.embeddings import FakeEmbeddingProvider
+    from apps.stories.services.representation import clustering_input_hash
+
+    provider = FakeEmbeddingProvider(4)
+    source = _source()
+    story = Story.objects.create(
+        canonical_title="Centroid validity",
+        status=StoryStatus.ACTIVE,
+        latest_source_update_at=timezone.now(),
+    )
+    items = [_item(source, f"Member {i}", f"body {i}") for i in range(5)]
+    states = [
+        ("indexed", "fake-hash-bucket", "fake-v1", 4, True),
+        ("stale", "fake-hash-bucket", "fake-v1", 4, True),
+        ("failed", "fake-hash-bucket", "fake-v1", 4, True),
+        ("indexed", "other-model", "fake-v1", 4, True),
+        ("indexed", "fake-hash-bucket", "fake-v1", 8, True),
+    ]
+    for item, (status, model, version, dimension, correct_hash) in zip(items, states, strict=True):
+        StoryMembership.objects.create(story=story, source_item=item, is_current=True)
+        ItemEmbedding.objects.create(
+            source_item=item,
+            content_hash=(
+                clustering_input_hash(item.title, item.normalized_text) if correct_hash else "stale"
+            ),
+            provider="fake",
+            model=model,
+            model_version=version,
+            dimension=dimension,
+            status=status,
+            point_id=f"item-{item.pk}",
+        )
+    ident = {
+        "provider": "fake",
+        "model": "fake-hash-bucket",
+        "model_version": "fake-v1",
+        "dimension": 4,
+    }
+    with patch("apps.stories.services.clustering.embedding_identity", return_value=ident):
+        vectors, member_ids = _valid_member_vectors(story, provider)
+    assert len(vectors) == 1
+    assert member_ids == [items[0].pk]
+
+
+def test_story_freshness_uses_max_published_and_edit_time():
+    from apps.stories.services import clustering as clu_mod
+    from apps.stories.services.embeddings import FakeEmbeddingProvider
+
+    source = _source()
+    now = timezone.now()
+    item1 = _item(
+        source,
+        "Freshness seed",
+        "Freshness seed body.",
+        published_at=now - timedelta(hours=5),
+    )
+    with patch.object(
+        clu_mod.story_clustering_service, "_provider", FakeEmbeddingProvider(128), create=True
+    ):
+        out = story_clustering_service.cluster_item(item1.pk)
+    story = Story.objects.get(pk=out["story_id"])
+    assert story.latest_source_update_at is not None
+    # Simulate a Telegram edit arriving later: freshness must advance.
+    item1.source_updated_at = now
+    item1.save(update_fields=["source_updated_at", "updated_at"])
+    clu_mod.story_clustering_service._refresh_story_stats(story)
+    story.refresh_from_db()
+    assert story.latest_source_update_at is not None
+    assert abs((story.latest_source_update_at - now).total_seconds()) < 3600
+
+
+def test_primary_policy_deterministic_and_versioned():
+    from apps.stories.services import clustering as clu_mod
+    from apps.stories.services.clustering import PRIMARY_POLICY_VERSION
+    from apps.stories.services.embeddings import FakeEmbeddingProvider
+
+    assert PRIMARY_POLICY_VERSION == "primary-v1"
+    source = _source()
+    high_trust = _source(name="High trust", identifier="@high")
+    high_trust.trust_score = "0.95"
+    high_trust.reliability_score = "0.95"
+    high_trust.save()
+    now = timezone.now()
+    early = _item(
+        source,
+        "Primary race seed",
+        "Primary race seed body.",
+        published_at=now - timedelta(hours=3),
+    )
+    late = _item(
+        high_trust,
+        "Primary race seed",
+        "Primary race seed body duplicate text.",
+        published_at=now - timedelta(minutes=10),
+    )
+    # Force both into one story via merge to test primary selection directly.
+    with patch.object(
+        clu_mod.story_clustering_service, "_provider", FakeEmbeddingProvider(128), create=True
+    ):
+        out1 = story_clustering_service.cluster_item(early.pk)
+        out2 = story_clustering_service.cluster_item(late.pk)
+    from apps.stories.services.merge import merge_stories
+
+    if out1["story_id"] != out2["story_id"]:
+        merge_stories(
+            source_story_id=out2["story_id"], target_story_id=out1["story_id"], reason="test"
+        )
+    story = Story.objects.get(pk=out1["story_id"])
+    assert story.primary_item_id == early.pk  # earliest valid publication always wins
+    assert (story.metadata or {}).get("primary_policy_version") == "primary-v1"
+
+
+def test_copy_time_gap_signal_and_distinct_source_counts():
+    from apps.stories.services.independence import classify_membership
+
+    label_fast, _, ev_fast = classify_membership(
+        item_text="Breaking identical text here now",
+        item_meta={},
+        forward_origin=None,
+        story_texts=["Breaking identical text here now"],
+        story_urls=[],
+        time_gap_hours=0.1,
+    )
+    assert label_fast == "likely_copy"
+    assert ev_fast["time_gap_hours"] == 0.1
+    label_slow, _, _ = classify_membership(
+        item_text="Completely rewritten independent report with other wording",
+        item_meta={},
+        forward_origin=None,
+        story_texts=["Something else entirely different here"],
+        story_urls=[],
+        time_gap_hours=0.1,
+    )
+    assert label_slow == "independent"
+
+
+def test_qdrant_collection_versioned_by_model():
+    from apps.stories.services import vector_store
+
+    base = vector_store.collection_name()
+    identity = {
+        "dimension": 384,
+        "provider": "fastembed",
+        "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        "model_version": "phase4-default-v1",
+    }
+    versioned = vector_store.collection_name(**identity)
+    changed_dimension = vector_store.collection_name(**{**identity, "dimension": 768})
+    changed_version = vector_store.collection_name(**{**identity, "model_version": "v2"})
+    changed_provider = vector_store.collection_name(**{**identity, "provider": "fake"})
+    assert versioned != base
+    assert len({versioned, changed_dimension, changed_version, changed_provider}) == 4
+    with pytest.raises(ValueError):
+        vector_store.search_points(vector=[0.1] * 384, provider="", model="", model_version="")
+    # Qdrant is auxiliary only: MySQL ItemEmbedding rows identify a versioned collection.
+    identity_row = ItemEmbedding(
+        provider=identity["provider"],
+        model=identity["model"],
+        model_version=identity["model_version"],
+        dimension=identity["dimension"],
+    )
+    collection = vector_store.collection_name(
+        dimension=identity_row.dimension,
+        provider=identity_row.provider,
+        model=identity_row.model,
+        model_version=identity_row.model_version,
+    )
+    assert collection == versioned
+
+
+def test_relationship_field_ready_for_future():
+    from apps.stories.models import ClusteringDecision, StoryRelationship
+
+    assert StoryRelationship.SAME_EVENT == "same_event"
+    assert StoryRelationship.MATERIAL_UPDATE == "material_update"
+    assert StoryRelationship.RELATED_EVENT == "related_event"
+    assert StoryRelationship.UNRELATED == "unrelated"
+    field = ClusteringDecision._meta.get_field("relationship")
+    assert field.blank is True

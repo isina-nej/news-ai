@@ -124,6 +124,8 @@ def centroid(vectors: list[list[float]], *, cap: int = 8) -> list[float] | None:
         return None
     use = vectors[: max(1, cap)]
     dim = len(use[0])
+    if not dim or any(len(vector) != dim for vector in use):
+        return None
     mean = [sum(v[i] for v in use) / len(use) for i in range(dim)]
     norm = math.sqrt(sum(v * v for v in mean)) or 1.0
     return [v / norm for v in mean]

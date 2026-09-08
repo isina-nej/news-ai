@@ -51,8 +51,34 @@ def classify_membership(
     return "independent", 0.85, {**evidence, "reason": "paraphrase_or_distinct"}
 
 
-def aggregate_counts(labels: list[str]) -> tuple[int, int, str]:
+UNKNOWN_POLICY_VERSION = "unknown-policy-v1"
+
+
+def policy() -> str:
+    """How UNKNOWN per-source labels count. Conservative default: exclude.
+
+    Returns "exclude" (UNKNOWN never counts) unless DynamicSetting
+    `independence_unknown_policy` is explicitly "include". Versioned via
+    UNKNOWN_POLICY_VERSION so future policy flips stay auditable.
+    """
+    try:
+        from apps.ops.models import DynamicSetting
+
+        row = DynamicSetting.objects.filter(key="independence_unknown_policy").first()
+        if row and isinstance(row.value, dict):
+            if str(row.value.get("policy", "")).lower() == "include":
+                return "include"
+    except Exception:  # noqa: S110 — dynamic setting lookup fallback
+        pass
+    return "exclude"
+
+
+def aggregate_counts(labels: list[str], unknown_policy: str | None = None) -> tuple[int, int, str]:
     """Return (observed, independent, algorithm_version)."""
     observed = len(labels)
-    independent = sum(1 for label in labels if label == "independent")
-    return observed, independent, "indep-v1"
+    policy_name = (unknown_policy or policy()).lower()
+    if policy_name == "include":
+        independent = sum(1 for label in labels if label in ("independent", "unknown"))
+    else:
+        independent = sum(1 for label in labels if label == "independent")
+    return observed, independent, f"indep-v1+{UNKNOWN_POLICY_VERSION}:{policy_name}"

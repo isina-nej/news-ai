@@ -14,7 +14,6 @@ from django.utils import timezone
 
 from apps.stories.models import Story
 from apps.stories.services import lexical as lex
-from apps.stories.services.representation import extract_metadata
 
 
 def lookback_hours(*, extended: bool = False) -> int:
@@ -27,12 +26,36 @@ def max_candidates() -> int:
     return int(getattr(settings, "CLUSTER_MAX_CANDIDATES", 30) or 30)
 
 
+EXCLUDED_STATUSES = ("merged", "archived", "stale")
+
+
+def is_candidate_eligible(story, *, now=None, extended: bool = False) -> bool:
+    """Central eligibility policy for every candidate source (URL/MinHash/Qdrant/recency).
+
+    Qdrant hits must pass this gate too — the vector index never bypasses
+    status or lookback policy.
+    """
+    if story is None or story.pk is None:
+        return False
+    if story.status in EXCLUDED_STATUSES:
+        return False
+    ref = now or timezone.now()
+    cutoff = ref - timedelta(hours=lookback_hours(extended=extended))
+    ts = story.latest_source_update_at
+    if ts is None:
+        return False
+    try:
+        return ts >= cutoff
+    except TypeError:
+        return False
+
+
 def recent_stories(*, now=None, extended: bool = False, limit: int = 200):
     now = now or timezone.now()
     cutoff = now - timedelta(hours=lookback_hours(extended=extended))
     return list(
         Story.objects.filter(latest_source_update_at__gte=cutoff)
-        .exclude(status__in=["merged", "archived"])
+        .exclude(status__in=list(EXCLUDED_STATUSES))
         .order_by("-latest_source_update_at")[:limit]
     )
 
@@ -71,7 +94,14 @@ def minhash_candidates(item_text: str, stories: list, *, threshold: float = 0.5)
     return [story for _, story in scored]
 
 
-def vector_candidates(item_vector: list[float] | None, *, limit: int = 15) -> list:
+def vector_candidates(
+    item_vector: list[float] | None,
+    *,
+    limit: int = 15,
+    provider: str | None = None,
+    model: str | None = None,
+    model_version: str | None = None,
+) -> list:
     """Optional Qdrant nearest neighbors. Failure => [] (never break clustering)."""
     if not item_vector:
         return []
@@ -79,7 +109,13 @@ def vector_candidates(item_vector: list[float] | None, *, limit: int = 15) -> li
         from apps.stories.models import Story as StoryModel
         from apps.stories.services import vector_store
 
-        hits = vector_store.search_points(vector=item_vector, limit=limit)
+        hits = vector_store.search_points(
+            vector=item_vector,
+            limit=limit,
+            provider=provider or "",
+            model=model or "",
+            model_version=model_version or "",
+        )
         ids: list[int] = []
         for hit in hits:
             payload = hit.get("payload", {})
@@ -115,17 +151,42 @@ def generate_candidates(
     item_text: str,
     item_meta: dict,
     item_vector: list[float] | None = None,
+    item_provider: str | None = None,
+    item_model: str | None = None,
+    item_model_version: str | None = None,
     now=None,
     extended: bool = False,
-) -> list:
+) -> dict:
+    now = now or timezone.now()
     window = recent_stories(now=now, extended=extended)
-    if not window:
-        return []
     url_hits = url_evidence_candidates(item_meta, window)
     mh_hits = minhash_candidates(item_text, window)
-    vec_hits = vector_candidates(item_vector)
-    # Time-ordered recency tail guarantees coverage even with no signal overlap.
+    # Qdrant is an auxiliary candidate source, not a source of truth. Query it
+    # even when the SQL recency window is empty, then apply the same central gate.
+    raw_vector_hits = vector_candidates(
+        item_vector,
+        provider=item_provider,
+        model=item_model,
+        model_version=item_model_version,
+    )
     recency = window[:10]
-    void_meta = extract_metadata("", "")
-    _ = void_meta
-    return union_candidates(url_hits, mh_hits, vec_hits, recency, limit=max_candidates())
+    counts = {
+        "url_candidate_count": len(url_hits),
+        "minhash_candidate_count": len(mh_hits),
+        "vector_candidate_count": len(raw_vector_hits),
+        "recency_candidate_count": len(recency),
+    }
+    merged = union_candidates(url_hits, mh_hits, raw_vector_hits, recency, limit=max_candidates())
+    eligible = [s for s in merged if is_candidate_eligible(s, now=now, extended=extended)]
+    counts["eligible_candidate_count"] = len(eligible)
+    return {"candidates": eligible, "counts": counts}
+
+
+def _empty_counts() -> dict:
+    return {
+        "url_candidate_count": 0,
+        "minhash_candidate_count": 0,
+        "vector_candidate_count": 0,
+        "recency_candidate_count": 0,
+        "eligible_candidate_count": 0,
+    }

@@ -1,1 +1,602 @@
-[{"a_text": "OpenAI unveiled its new flagship model GPT-X with faster reasoning and lower latency for developers.", "a_title": "OpenAI unveils flagship model GPT-X", "b_text": "OpenAI today introduced GPT-X, its newest flagship model promising quicker reasoning and reduced latency.", "b_title": "OpenAI introduces GPT-X flagship model", "label": "same", "language": "en"}, {"a_text": "OpenAI today introduced GPT-X, its newest flagship model promising quicker reasoning and reduced latency. (GPT-X OpenAI)", "a_title": "OpenAI introduces GPT-X flagship model", "b_text": "شرکت اوپن‌ای‌آی امروز از مدل پرچمدار جدید خود GPT-X رونمایی کرد که استدلال سریع‌تر و تأخیر کمتری دارد.", "b_title": "اوپن‌ای‌آی از مدل پرچمدار GPT-X رونمایی کرد", "label": "same", "language": ""}, {"a_text": "BREAKING: OpenAI launches GPT-X, stock photo of servers. Full story: faster inference, new API pricing tiers next week.", "a_title": "BREAKING OpenAI launches GPT-X", "b_text": "OpenAI has launched GPT-X with faster inference; API pricing tiers to be announced next week.", "b_title": "OpenAI launches GPT-X with faster inference", "label": "same", "language": "en"}, {"a_text": "مدل جدید GPT-X شرکت OpenAI با سرعت استنباط بالاتر منتشر شد و قرار است قیمت‌گذاری API هفته آینده اعلام شود.", "a_title": "انتشار GPT-X با سرعت بالاتر", "b_text": "OpenAI از مدل GPT-X رونمایی کرد؛ سرعت بالاتر و قیمت API هفته آینده مشخص می‌شود.", "b_title": "رونمایی OpenAI از GPT-X", "label": "same", "language": ""}, {"a_text": "OpenAI unveiled its new flagship model GPT-X with faster reasoning and lower latency for developers.", "a_title": "OpenAI unveils flagship model GPT-X", "b_text": "OpenAI unveiled its new flagship model GPT-X with faster reasoning and lower latency for developers.", "b_title": "OpenAI unveils flagship model GPT-X", "label": "same", "language": "en"}, {"a_text": "Apple reported record quarterly revenue driven by services growth and strong iPhone demand in Asia.", "a_title": "Apple posts record quarter on services", "b_text": "Apple posted record quarterly revenue as services grew and iPhone demand stayed strong across Asia.", "b_title": "Apple record quarter services iPhone", "label": "same", "language": "en"}, {"a_text": "Central bank held interest rates steady and signaled patience on future cuts amid sticky inflation.", "a_title": "Central bank holds rates steady", "b_text": "The central bank kept rates unchanged, urging patience on cuts while inflation remains sticky.", "b_title": "Rates unchanged as bank urges patience", "label": "same", "language": "en"}, {"a_text": "City metro line 4 extension opens to passengers after two years of construction delays.", "a_title": "Metro line 4 extension opens", "b_text": "After two years of delays, the line 4 metro extension welcomed its first passengers today.", "b_title": "Line 4 metro opens after delays", "label": "same", "language": "en"}, {"a_text": "Researchers demonstrated a low-power chip cutting data-center energy use by 18 percent in trials.", "a_title": "Low-power chip cuts energy 18 percent", "b_text": "A new low-power chip reduced data-center energy consumption by eighteen percent during trials.", "b_title": "Chip trial shows 18 percent energy cut", "label": "same", "language": "en"}, {"a_text": "National team won the final 2-1 after a late penalty in front of a home crowd.", "a_title": "National team wins final 2-1", "b_text": "A late penalty sealed a 2-1 final victory for the national team at home.", "b_title": "Late penalty seals 2-1 final win", "label": "same", "language": "en"}, {"a_text": "تیم ملی در فینال با نتیجه ۲ بر ۱ و با پنالتی دقایق پایانی قهرمان شد.", "a_title": "قهرمانی تیم ملی با برد ۲-۱", "b_text": "National team won the final 2-1 with a late penalty.", "b_title": "National team wins final 2-1", "label": "same", "language": ""}, {"a_text": "بانک مرکزی نرخ بهره را ثابت نگه داشت و از صبر در کاهش‌های بعدی سخن گفت.", "a_title": "تثبیت نرخ بهره بانکی", "b_text": "Central bank held interest rates steady and signaled patience on future cuts.", "b_title": "Central bank holds rates steady", "label": "same", "language": ""}, {"a_text": "OpenAI unveiled its new flagship model GPT-X with faster reasoning.", "a_title": "OpenAI unveils flagship model GPT-X", "b_text": "OpenAI cut API prices for GPT-X by 40 percent for all developer tiers.", "b_title": "OpenAI cuts GPT-X API prices 40 percent", "label": "different", "language": "en"}, {"a_text": "Apple reported record quarterly revenue driven by services growth.", "a_title": "Apple posts record quarter", "b_text": "Apple unveils new MacBook lineup with faster chips for creators.", "b_title": "Apple unveils new MacBook lineup", "label": "different", "language": "en"}, {"a_text": "Central bank held interest rates steady at 5.25 percent on Thursday.", "a_title": "Bank holds rates at 5.25 percent", "b_text": "Central bank raises rates to 6 percent citing hot inflation data.", "b_title": "Bank raises rates to 6 percent", "label": "different", "language": "en"}, {"a_text": "National team won the final 2-1 after a late penalty.", "a_title": "National team wins final 2-1", "b_text": "National team lost the semifinal 0-3 and exited the tournament.", "b_title": "National team exits after 0-3 loss", "label": "different", "language": "en"}, {"a_text": "OpenAI launches GPT-X with a knowledge cutoff of January 2026.", "a_title": "GPT-X knowledge cutoff January 2026", "b_text": "OpenAI launches GPT-X with a knowledge cutoff of January 2024.", "b_title": "GPT-X knowledge cutoff January 2024", "label": "different", "language": "en"}, {"a_text": "City council approved a $2.1 billion metro extension plan on Tuesday.", "a_title": "Council approves $2.1B metro plan", "b_text": "City council approved a $4.8 billion metro extension plan on Tuesday.", "b_title": "Council approves $4.8B metro plan", "label": "different", "language": "en"}, {"a_text": "Health ministry confirmed 120 new cases and 2 deaths linked to the outbreak.", "a_title": "120 new cases, 2 deaths reported", "b_text": "Health ministry confirmed 900 new cases and 45 deaths linked to the outbreak.", "b_title": "900 new cases, 45 deaths reported", "label": "different", "language": "en"}, {"a_text": "The startup raised $50M Series B led by Sequoia to expand in Europe.", "a_title": "Startup raises $50M Series B", "b_text": "The startup raised $500M Series B led by Sequoia to expand in Europe.", "b_title": "Startup raises $500M Series B", "label": "different", "language": "en"}, {"a_text": "Parliament passed the data protection bill with 180 votes in favor.", "a_title": "Parliament passes data bill 180 votes", "b_text": "Parliament rejected the data protection bill with 180 votes against.", "b_title": "Parliament rejects data bill", "label": "different", "language": "en"}, {"a_text": "NASA launched the Artemis II crew capsule for a lunar flyby test.", "a_title": "NASA launches Artemis II flyby", "b_text": "NASA delayed the Artemis II launch to next year over safety reviews.", "b_title": "NASA delays Artemis II launch", "label": "different", "language": "en"}, {"a_text": "The euro reached 1.09 dollars in early trading on Monday.", "a_title": "Euro hits 1.09 dollars Monday", "b_text": "The euro fell to 0.97 dollars in early trading on Monday.", "b_title": "Euro falls to 0.97 dollars Monday", "label": "different", "language": "en"}, {"a_text": "اوپن‌ای‌آی از مدل GPT-X رونمایی کرد.", "a_title": "رونمایی GPT-X", "b_text": "اوپن‌ای‌آی قیمت API مدل GPT-X را ۴۰ درصد کاهش داد.", "b_title": "کاهش ۴۰ درصدی قیمت API مدل GPT-X", "label": "different", "language": "fa"}, {"a_text": "OpenAI unveiled GPT-X on Monday in San Francisco.", "a_title": "OpenAI unveils GPT-X Monday", "b_text": "Anthropic unveiled Claude Y on Monday in San Francisco.", "b_title": "Anthropic unveils Claude Y Monday", "label": "different", "language": "en"}, {"a_text": "The summit will be held in Geneva next month, officials said.", "a_title": "Summit set for Geneva next month", "b_text": "The summit was held in Vienna last month, officials confirmed.", "b_title": "Summit held in Vienna last month", "label": "different", "language": "en"}, {"a_text": "Scientists found water traces on the exoplanet K2-18b using Webb data.", "a_title": "Water traces found on K2-18b", "b_text": "Scientists found methane traces on the exoplanet K2-18b using Webb data.", "b_title": "Methane traces found on K2-18b", "label": "different", "language": "en"}, {"a_text": "The company will cut 500 jobs in restructuring, mostly in marketing.", "a_title": "Company cuts 500 jobs", "b_text": "The company will hire 500 engineers for AI teams, mostly in research.", "b_title": "Company hires 500 engineers", "label": "different", "language": "en"}, {"a_text": "Heavy rain flooded streets in the capital; metro service suspended.", "a_title": "Floods suspend metro service", "b_text": "Heavy snow blocked highways near the capital; flights delayed.", "b_title": "Snow blocks highways, delays flights", "label": "different", "language": "en"}, {"a_text": "The film festival opened with a French drama about migration.", "a_title": "Festival opens with French drama", "b_text": "The film festival closed with an Iranian comedy about family.", "b_title": "Festival closes with Iranian comedy", "label": "different", "language": "en"}]
+[
+ {
+  "a_text": "OpenAI unveiled its new flagship model GPT-X with faster reasoning and lower latency for developers.",
+  "a_title": "OpenAI unveils flagship model GPT-X",
+  "b_text": "OpenAI today introduced GPT-X, its newest flagship model promising quicker reasoning and reduced latency.",
+  "b_title": "OpenAI introduces GPT-X flagship model",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_text": "OpenAI today introduced GPT-X, its newest flagship model promising quicker reasoning and reduced latency. (GPT-X OpenAI)",
+  "a_title": "OpenAI introduces GPT-X flagship model",
+  "b_text": "شرکت اوپن‌ای‌آی امروز از مدل پرچمدار جدید خود GPT-X رونمایی کرد که استدلال سریع‌تر و تأخیر کمتری دارد.",
+  "b_title": "اوپن‌ای‌آی از مدل پرچمدار GPT-X رونمایی کرد",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_text": "BREAKING: OpenAI launches GPT-X, stock photo of servers. Full story: faster inference, new API pricing tiers next week.",
+  "a_title": "BREAKING OpenAI launches GPT-X",
+  "b_text": "OpenAI has launched GPT-X with faster inference; API pricing tiers to be announced next week.",
+  "b_title": "OpenAI launches GPT-X with faster inference",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_text": "مدل جدید GPT-X شرکت OpenAI با سرعت استنباط بالاتر منتشر شد و قرار است قیمت‌گذاری API هفته آینده اعلام شود.",
+  "a_title": "انتشار GPT-X با سرعت بالاتر",
+  "b_text": "OpenAI از مدل GPT-X رونمایی کرد؛ سرعت بالاتر و قیمت API هفته آینده مشخص می‌شود.",
+  "b_title": "رونمایی OpenAI از GPT-X",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_text": "OpenAI unveiled its new flagship model GPT-X with faster reasoning and lower latency for developers.",
+  "a_title": "OpenAI unveils flagship model GPT-X",
+  "b_text": "OpenAI unveiled its new flagship model GPT-X with faster reasoning and lower latency for developers.",
+  "b_title": "OpenAI unveils flagship model GPT-X",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_text": "Apple reported record quarterly revenue driven by services growth and strong iPhone demand in Asia.",
+  "a_title": "Apple posts record quarter on services",
+  "b_text": "Apple posted record quarterly revenue as services grew and iPhone demand stayed strong across Asia.",
+  "b_title": "Apple record quarter services iPhone",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_text": "Central bank held interest rates steady and signaled patience on future cuts amid sticky inflation.",
+  "a_title": "Central bank holds rates steady",
+  "b_text": "The central bank kept rates unchanged, urging patience on cuts while inflation remains sticky.",
+  "b_title": "Rates unchanged as bank urges patience",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_text": "City metro line 4 extension opens to passengers after two years of construction delays.",
+  "a_title": "Metro line 4 extension opens",
+  "b_text": "After two years of delays, the line 4 metro extension welcomed its first passengers today.",
+  "b_title": "Line 4 metro opens after delays",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_text": "Researchers demonstrated a low-power chip cutting data-center energy use by 18 percent in trials.",
+  "a_title": "Low-power chip cuts energy 18 percent",
+  "b_text": "A new low-power chip reduced data-center energy consumption by eighteen percent during trials.",
+  "b_title": "Chip trial shows 18 percent energy cut",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_text": "National team won the final 2-1 after a late penalty in front of a home crowd.",
+  "a_title": "National team wins final 2-1",
+  "b_text": "A late penalty sealed a 2-1 final victory for the national team at home.",
+  "b_title": "Late penalty seals 2-1 final win",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_text": "تیم ملی در فینال با نتیجه ۲ بر ۱ و با پنالتی دقایق پایانی قهرمان شد.",
+  "a_title": "قهرمانی تیم ملی با برد ۲-۱",
+  "b_text": "National team won the final 2-1 with a late penalty.",
+  "b_title": "National team wins final 2-1",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_text": "بانک مرکزی نرخ بهره را ثابت نگه داشت و از صبر در کاهش‌های بعدی سخن گفت.",
+  "a_title": "تثبیت نرخ بهره بانکی",
+  "b_text": "Central bank held interest rates steady and signaled patience on future cuts.",
+  "b_title": "Central bank holds rates steady",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_text": "OpenAI unveiled its new flagship model GPT-X with faster reasoning.",
+  "a_title": "OpenAI unveils flagship model GPT-X",
+  "b_text": "OpenAI cut API prices for GPT-X by 40 percent for all developer tiers.",
+  "b_title": "OpenAI cuts GPT-X API prices 40 percent",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "Apple reported record quarterly revenue driven by services growth.",
+  "a_title": "Apple posts record quarter",
+  "b_text": "Apple unveils new MacBook lineup with faster chips for creators.",
+  "b_title": "Apple unveils new MacBook lineup",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "Central bank held interest rates steady at 5.25 percent on Thursday.",
+  "a_title": "Bank holds rates at 5.25 percent",
+  "b_text": "Central bank raises rates to 6 percent citing hot inflation data.",
+  "b_title": "Bank raises rates to 6 percent",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "National team won the final 2-1 after a late penalty.",
+  "a_title": "National team wins final 2-1",
+  "b_text": "National team lost the semifinal 0-3 and exited the tournament.",
+  "b_title": "National team exits after 0-3 loss",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "OpenAI launches GPT-X with a knowledge cutoff of January 2026.",
+  "a_title": "GPT-X knowledge cutoff January 2026",
+  "b_text": "OpenAI launches GPT-X with a knowledge cutoff of January 2024.",
+  "b_title": "GPT-X knowledge cutoff January 2024",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "City council approved a $2.1 billion metro extension plan on Tuesday.",
+  "a_title": "Council approves $2.1B metro plan",
+  "b_text": "City council approved a $4.8 billion metro extension plan on Tuesday.",
+  "b_title": "Council approves $4.8B metro plan",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "Health ministry confirmed 120 new cases and 2 deaths linked to the outbreak.",
+  "a_title": "120 new cases, 2 deaths reported",
+  "b_text": "Health ministry confirmed 900 new cases and 45 deaths linked to the outbreak.",
+  "b_title": "900 new cases, 45 deaths reported",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "The startup raised $50M Series B led by Sequoia to expand in Europe.",
+  "a_title": "Startup raises $50M Series B",
+  "b_text": "The startup raised $500M Series B led by Sequoia to expand in Europe.",
+  "b_title": "Startup raises $500M Series B",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "Parliament passed the data protection bill with 180 votes in favor.",
+  "a_title": "Parliament passes data bill 180 votes",
+  "b_text": "Parliament rejected the data protection bill with 180 votes against.",
+  "b_title": "Parliament rejects data bill",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "NASA launched the Artemis II crew capsule for a lunar flyby test.",
+  "a_title": "NASA launches Artemis II flyby",
+  "b_text": "NASA delayed the Artemis II launch to next year over safety reviews.",
+  "b_title": "NASA delays Artemis II launch",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "The euro reached 1.09 dollars in early trading on Monday.",
+  "a_title": "Euro hits 1.09 dollars Monday",
+  "b_text": "The euro fell to 0.97 dollars in early trading on Monday.",
+  "b_title": "Euro falls to 0.97 dollars Monday",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "اوپن‌ای‌آی از مدل GPT-X رونمایی کرد.",
+  "a_title": "رونمایی GPT-X",
+  "b_text": "اوپن‌ای‌آی قیمت API مدل GPT-X را ۴۰ درصد کاهش داد.",
+  "b_title": "کاهش ۴۰ درصدی قیمت API مدل GPT-X",
+  "label": "different",
+  "language": "fa"
+ },
+ {
+  "a_text": "OpenAI unveiled GPT-X on Monday in San Francisco.",
+  "a_title": "OpenAI unveils GPT-X Monday",
+  "b_text": "Anthropic unveiled Claude Y on Monday in San Francisco.",
+  "b_title": "Anthropic unveils Claude Y Monday",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "The summit will be held in Geneva next month, officials said.",
+  "a_title": "Summit set for Geneva next month",
+  "b_text": "The summit was held in Vienna last month, officials confirmed.",
+  "b_title": "Summit held in Vienna last month",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "Scientists found water traces on the exoplanet K2-18b using Webb data.",
+  "a_title": "Water traces found on K2-18b",
+  "b_text": "Scientists found methane traces on the exoplanet K2-18b using Webb data.",
+  "b_title": "Methane traces found on K2-18b",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "The company will cut 500 jobs in restructuring, mostly in marketing.",
+  "a_title": "Company cuts 500 jobs",
+  "b_text": "The company will hire 500 engineers for AI teams, mostly in research.",
+  "b_title": "Company hires 500 engineers",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "Heavy rain flooded streets in the capital; metro service suspended.",
+  "a_title": "Floods suspend metro service",
+  "b_text": "Heavy snow blocked highways near the capital; flights delayed.",
+  "b_title": "Snow blocks highways, delays flights",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_text": "The film festival opened with a French drama about migration.",
+  "a_title": "Festival opens with French drama",
+  "b_text": "The film festival closed with an Iranian comedy about family.",
+  "b_title": "Festival closes with Iranian comedy",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "زلزله ۵.۹ ریشتری هرات را لرزاند",
+  "a_text": "زمین‌لرزه‌ای به بزرگی ۵.۹ ریشتر حوالی هرات رخ داد و تیم‌های امدادی اعزام شدند.",
+  "b_title": "زمین‌لرزه شدید در هرات",
+  "b_text": "دقایقی پیش زلزله‌ای قدرتمند هرات را تکان داد؛ شدت آن ۵.۹ اعلام شده و امدادگران در راه‌اند.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "قیمت دلار از مرز ۶۰ هزار تومان گذشت",
+  "a_text": "نرخ دلار در بازار آزاد تهران به بالای ۶۰ هزار تومان رسید و صرافان از افزایش تقاضا خبر دادند.",
+  "b_title": "دلار ۶۰ هزار تومانی شد",
+  "b_text": "دلار امروز در بازار آزاد از ۶۰ هزار تومان عبور کرد؛ فعالان بازار دلیل را رشد تقاضا می‌دانند.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "آتش‌سوزی گسترده در بازار تهران مهار شد",
+  "a_text": "سخنگوی آتش‌نشانی گفت حریق گسترده بازار تهران پس از سه ساعت تلاش مهار شد و تلفاتی نداشت.",
+  "b_title": "مهار آتش‌سوزی بازار تهران",
+  "b_text": "آتش‌نشانی پایتخت اعلام کرد آتش‌سوزی بزرگ بازار پس از سه ساعت خاموش شد؛ کسی آسیب ندید.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "تیم ملی والیبال ایران فینالیست شد",
+  "a_text": "تیم ملی والیبال ایران با برد ۳ بر ۱ مقابل ژاپن به فینال قهرمانی آسیا رسید.",
+  "b_title": "صعود والیبال ایران به فینال آسیا",
+  "b_text": "والیبالیست‌های ایران ژاپن را ۳-۱ شکست دادند و فینالیست آسیا شدند.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "سامانه بارشی جدید وارد کشور می‌شود",
+  "a_text": "سازمان هواشناسی از ورود سامانه بارشی از غرب کشور و بارش برف در ارتفاعات خبر داد.",
+  "b_title": "هشدار بارش برف در ارتفاعات",
+  "b_text": "هواشناسی پیش‌بینی کرد با ورود سامانه جدید، ارتفاعات غربی شاهد بارش برف خواهند بود.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "NASA confirms water ice in lunar south pole samples",
+  "a_text": "NASA scientists confirmed traces of water ice in samples from the Moon's south pole region.",
+  "b_title": "Water ice found in Moon south pole samples, NASA says",
+  "b_text": "Samples collected near the lunar south pole contain water ice, NASA researchers announced.",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_title": "EU agrees landmark AI safety rules",
+  "a_text": "European Union lawmakers agreed on sweeping AI safety legislation after marathon talks.",
+  "b_title": "EU strikes deal on AI safety law",
+  "b_text": "After marathon negotiations, the EU reached agreement on landmark artificial intelligence rules.",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_title": "Toyota recalls 200,000 vehicles over brake fault",
+  "a_text": "Toyota is recalling about 200,000 cars worldwide due to a potential brake system defect.",
+  "b_title": "Toyota recall: 200k cars for brake issue",
+  "b_text": "Around 200,000 Toyota vehicles face recall over faulty brakes, the automaker said.",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_title": "Iran wins Asian volleyball final",
+  "a_text": "Iran defeated Japan 3-1 to win the Asian volleyball championship final.",
+  "b_title": "قهرمانی والیبال ایران در آسیا",
+  "b_text": "تیم ملی والیبال ایران با پیروزی ۳ بر ۱ برابر ژاپن قهرمان آسیا شد.",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_title": "Tehran metro line extension opens",
+  "a_text": "The new Tehran metro extension opened to passengers on Monday morning.",
+  "b_title": "افتتاح خط جدید متروی تهران",
+  "b_text": "خط جدید متروی تهران صبح دوشنبه با حضور مسئولان به بهره‌برداری رسید.",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_title": "فوری: انفجار در انبار نفت",
+  "a_text": "فوری: انفجار در انبار نفت جنوب شهر؛ دود غلیظ دیده می‌شود. جزئیات تکمیلی دقایقی دیگر.",
+  "b_title": "Explosion reported at southern oil depot",
+  "b_text": "Local authorities confirmed an explosion at the southern oil storage depot; thick smoke was visible. No casualties reported yet.",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_title": "BREAKING: airport runway closed",
+  "a_text": "Runway 2 closed due to debris. Flights delayed 30-60 min. Updates soon.",
+  "b_title": "Airport closes runway after debris found",
+  "b_text": "The international airport closed one runway on Tuesday after debris was discovered; several flights face delays of up to an hour.",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_title": "Quake magnitude 5.9 near Herat",
+  "a_text": "A 5.9-magnitude earthquake struck near Herat; rescue teams dispatched.",
+  "b_title": "Herat quake toll rises to 12 dead",
+  "b_text": "Officials say the Herat earthquake death toll has risen to 12 as rescue operations continue; magnitude confirmed at 5.9.",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_title": "بازار تهران آتش گرفت",
+  "a_text": "آتش‌سوزی در بازار تهران آغاز شد.",
+  "b_title": "مهار آتش‌سوزی بازار تهران؛ ۲ مصدوم",
+  "b_text": "آتش‌سوزی بازار تهران مهار شد؛ دو نفر به علت دودگرفتگی مصدوم شدند.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "Oil prices climb on supply concerns",
+  "a_text": "Oil prices climbed 2 percent on Monday amid fresh supply concerns in the Middle East.",
+  "b_title": "Oil prices climb on supply concerns",
+  "b_text": "Oil prices climbed 2 percent on Monday amid fresh supply concerns in the Middle East.",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_title": "SpaceX launches Starlink batch Saturday",
+  "a_text": "SpaceX launched 23 Starlink satellites from Florida on Saturday morning.",
+  "b_title": "SpaceX delays Starlink launch to Sunday",
+  "b_text": "SpaceX postponed the Starlink launch to Sunday citing unfavorable weather.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "پرتاب ماهواره مخابراتی انجام شد",
+  "a_text": "ماهواره مخابراتی جدید با موفقیت به مدار زمین پرتاب شد.",
+  "b_title": "پرتاب ماهواره به تعویق افتاد",
+  "b_text": "پرتاب ماهواره مخابراتی به دلیل نقص فنی به هفته آینده موکول شد.",
+  "label": "different",
+  "language": "fa"
+ },
+ {
+  "a_title": "Rumor: star striker to leave club",
+  "a_text": "Unconfirmed reports claim the star striker will leave the club this summer.",
+  "b_title": "Club denies striker exit rumors",
+  "b_text": "The club officially denied rumors of the striker's departure, calling them baseless.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "Tesla opens Berlin factory expansion",
+  "a_text": "Tesla inaugurated the expanded Berlin factory with 500 new jobs.",
+  "b_title": "Tesla recalls Cybertrucks over wiper fault",
+  "b_text": "Tesla recalled thousands of Cybertrucks due to a windshield wiper defect.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "همراه اول بسته اینترنت جدید داد",
+  "a_text": "همراه اول از بسته اینترنت ماهانه جدید با حجم بیشتر رونمایی کرد.",
+  "b_title": "اختلال همراه اول در تهران",
+  "b_text": "کاربران همراه اول در تهران از اختلال گسترده اینترنت خبر دادند.",
+  "label": "different",
+  "language": "fa"
+ },
+ {
+  "a_title": "Trade deal worth $2B signed",
+  "a_text": "The two countries signed a $2 billion trade agreement on energy.",
+  "b_title": "Trade deal worth $20B signed",
+  "b_text": "The two countries signed a $20 billion trade agreement on energy.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "زلزله ۴ ریشتری تبریز",
+  "a_text": "زمین‌لرزه‌ای به بزرگی ۴ ریشتر تبریز را لرزاند.",
+  "b_title": "زلزله ۶.۱ ریشتری تبریز",
+  "b_text": "زمین‌لرزه‌ای به بزرگی ۶.۱ ریشتر تبریز را لرزاند و خساراتی برجای گذاشت.",
+  "label": "different",
+  "language": "fa"
+ },
+ {
+  "a_title": "Election results announced",
+  "a_text": "The election commission announced provisional results late Sunday.",
+  "b_title": "Opposition rejects election results",
+  "b_text": "The opposition rejected the announced results and demanded a recount.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "New diabetes drug approved",
+  "a_text": "Regulators approved a new weekly diabetes injection after trials.",
+  "b_title": "New migraine drug approved",
+  "b_text": "Regulators approved a new monthly migraine prevention pill after trials.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "لیگ برتر: برد پرسپولیس",
+  "a_text": "پرسپولیس با نتیجه ۲ بر صفر ملوان را شکست داد.",
+  "b_title": "لیگ برتر: برد استقلال",
+  "b_text": "استقلال با نتیجه ۱ بر صفر مس را شکست داد.",
+  "label": "different",
+  "language": "fa"
+ },
+ {
+  "a_title": "قطعی آب در غرب تهران",
+  "a_text": "آب منطقه ۵ تا ساعت ۱۸ قطع است.",
+  "b_title": "اعلام قطعی آب منطقه ۵",
+  "b_text": "شرکت آب و فاضلاب: آب منطقه ۵ تهران تا ساعت ۱۸ امروز قطع خواهد بود.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "قطعی آب در غرب تهران",
+  "a_text": "آب منطقه ۵ تا ساعت ۱۸ قطع است.",
+  "b_title": "قطعی برق در شرق تهران",
+  "b_text": "برق منطقه ۸ تا ساعت ۲۰ قطع است.",
+  "label": "different",
+  "language": "fa"
+ },
+ {
+  "a_title": "Match postponed to Friday",
+  "a_text": "The derby scheduled for Wednesday was postponed to Friday.",
+  "b_title": "Match postponed to Sunday",
+  "b_text": "The derby scheduled for Wednesday was postponed to Sunday.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "Gold hits $2,400 record",
+  "a_text": "Gold prices hit a record $2,400 per ounce on strong demand.",
+  "b_title": "Gold hits $2,100 record",
+  "b_text": "Gold prices hit a record $2,100 per ounce on strong demand.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "والیبال ایران قهرمان شد",
+  "a_text": "تیم ملی والیبال ایران قهرمان آسیا شد.",
+  "b_title": "Iran volleyball champions",
+  "b_text": "Iran's volleyball team won the Asian championship.",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_title": "سقوط بالگرد امدادی در شیراز",
+  "a_text": "یک فروند بالگرد امدادی دقایقی پیش در حومه شیراز سقوط کرد و تیم‌های نجات اعزام شدند.",
+  "b_title": "جزئیات سقوط بالگرد در شیراز؛ ۵ سرنشین جان باختند",
+  "b_text": "اورژانس کشور جان باختن تمامی ۵ سرنشین بالگرد امدادی سقوط‌کرده در حوالی شیراز را تأیید کرد.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "SpaceX achieves 100th Falcon 9 booster landing",
+  "a_text": "SpaceX safely landed a Falcon 9 first stage for the 100th consecutive successful booster recovery.",
+  "b_title": "SpaceX hits milestone with 100th consecutive Falcon 9 landing",
+  "b_text": "A Falcon 9 first stage touched down on a droneship today, marking SpaceX's 100th consecutive landing.",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_title": "Microsoft announces Copilot workspace enhancements",
+  "a_text": "Microsoft rolled out new AI collaboration features for Copilot inside Word and Excel for enterprise clients.",
+  "b_title": "Microsoft unveils new Surface Laptop with Qualcomm Snapdragon chip",
+  "b_text": "Microsoft unveiled a redesigned Surface Laptop powered by Qualcomm Snapdragon X Elite processors.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "Apple CFO Luca Maestri to transition roles in 2026",
+  "a_text": "Apple announced its longtime CFO Luca Maestri will transition to corporate services later this year.",
+  "b_title": "Apple hires new head of silicon architecture from rival chipmaker",
+  "b_text": "Apple hired a veteran semiconductor executive to lead its custom silicon packaging division.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "گزارش‌های غیررسمی از توقف عرضه خودرو در بورس",
+  "a_text": "منابع آگاه می‌گویند عرضه خودرو در بورس کالا تا اطلاع ثانوی متوقف شده است.",
+  "b_title": "وزارت صمت توقف عرضه خودرو در بورس را تأیید کرد",
+  "b_text": "معاون وزیر صمت رسماً اعلام کرد عرضه خودرو در بورس کالا با مصوبه جدید موقتاً متوقف شد.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "شایعه ورشکستگی بانک آینده در فضای مجازی",
+  "a_text": "پیام‌هایی مبنی بر ورشکستگی یک بانک خصوصی در شبکه‌های اجتماعی دست به دست می‌شود.",
+  "b_title": "بانک مرکزی شایعه ورشکستگی بانک‌ها را تکذیب کرد",
+  "b_text": "بانک مرکزی با صدور اطلاعیه‌ای شایعات مربوط به ورشکستگی بانک‌های خصوصی را بی‌اساس خواند.",
+  "label": "different",
+  "language": "fa"
+ },
+ {
+  "a_title": "فوری: زلزله در بندرعباس",
+  "a_text": "فوری؛ زلزله ۴.۸ ریشتری دقایقی پیش بندرعباس را لرزاند. خسارتی تا این لحظه گزارش نشده است.",
+  "b_title": "زمین‌لرزه ۴.۸ ریشتری در حوالی بندرعباس",
+  "b_text": "مرکز لرزه‌نگاری اعلام کرد زمین‌لرزه‌ای به بزرگی ۴.۸ ریشتر در عمق ۱۰ کیلومتری بندرعباس رخ داد و تیم‌های هلال‌احمر به منطقه اعزام شده‌اند.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "فوری: آغاز پیش‌فروش سکه از فردا",
+  "a_text": "بانک مرکزی: پیش‌فروش مسکوکات طلا از ساعت ۱۰ صبح فردا در سامانه مرکز مبادله آغاز می‌شود.",
+  "b_title": "آغاز عرضه سکه در مرکز مبادله طلا و ارز",
+  "b_text": "مرکز مبادله طلا و ارز اعلام کرد متقاضیان می‌توانند از فردا در حراج سکه شرکت کنند.",
+  "label": "same",
+  "language": "fa"
+ },
+ {
+  "a_title": "Turkey quake rescue operations conclude",
+  "a_text": "Authorities officially concluded search and rescue operations across the earthquake zone as rebuilding begins.",
+  "b_title": "Quake rescue ends as focus shifts to shelter and rebuilding",
+  "b_text": "Emergency services completed the search phase in disaster provinces; efforts now shift to temporary housing.",
+  "label": "same",
+  "language": "en"
+ },
+ {
+  "a_title": "Boeing delivers first certified 777X passenger jet",
+  "a_text": "Boeing handed over its first certified 777X airliner to the launch airline after safety approval.",
+  "b_title": "Boeing postpones 777X initial deliveries to late next year",
+  "b_text": "Boeing pushed back initial customer deliveries of the 777X following extended FAA engine testing.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "US core inflation cools to 3.2 percent in August",
+  "a_text": "Consumer prices rose at a 3.2 percent annualized rate in August, matching economist expectations.",
+  "b_title": "US core inflation spikes to 8.4 percent in August",
+  "b_text": "Consumer prices accelerated to 8.4 percent year-over-year in August amid surge in shelter costs.",
+  "label": "different",
+  "language": "en"
+ },
+ {
+  "a_title": "قیمت بنزین سهمیه‌ای ۱۵۰۰ تومان باقی ماند",
+  "a_text": "سخنگوی دولت اعلام کرد نرخ بنزین یارانه‌ای در سال جدید تغییر نخواهد کرد و ۱۵۰۰ تومان می‌ماند.",
+  "b_title": "قیمت بنزین سهمیه‌ای به ۳۰۰۰ تومان افزایش یافت",
+  "b_text": "سخنگوی دولت اعلام کرد نرخ هر لیتر بنزین یارانه‌ای به ۳۰۰۰ تومان تغییر خواهد کرد.",
+  "label": "different",
+  "language": "fa"
+ },
+ {
+  "a_title": "هوش مصنوعی ایرانی موفق به جذب سرمایه ۱۰۰ میلیون دلاری شد",
+  "a_text": "یک استارتاپ پیشرو در حوزه مدل‌های زبانی فارسی توانست ۱۰۰ میلیون دلار سرمایه سری A جذب کند.",
+  "b_title": "Persian AI foundation model startup secures 00M Series A",
+  "b_text": "An artificial intelligence venture developing Persian language models completed a 00M Series A funding round.",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_title": "اوپک پلاس توافق کاهش تولید نفت را تا پایان سال تمدید کرد",
+  "a_text": "اعضای اوپک پلاس توافق کردند کاهش داوطلبانه تولید روزانه ۱.۵ میلیون بشکه را تمدید کنند.",
+  "b_title": "OPEC+ agrees to extend voluntary oil output cuts through year end",
+  "b_text": "OPEC+ producers finalized an agreement to prolong daily supply reductions of 1.5 million barrels.",
+  "label": "same",
+  "language": ""
+ },
+ {
+  "a_title": "افتتاح بیمارستان ۵۰۰ تخت‌خوابی در تبریز",
+  "a_text": "بیمارستان تخصصی ۵۰۰ تخت‌خوابی تبریز با تجهیزات مدرن به بهره‌برداری رسید.",
+  "b_title": "افتتاح بیمارستان ۵۰۰ تخت‌خوابی در شیراز",
+  "b_text": "بیمارستان تخصصی ۵۰۰ تخت‌خوابی شیراز با تجهیزات مدرن به بهره‌برداری رسید.",
+  "label": "different",
+  "language": "fa"
+ }
+]

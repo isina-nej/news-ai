@@ -23,13 +23,18 @@ Deterministic extractors: urls/domains, hashtags, mentions, numbers,
 currency values, content length, media presence. Entity/topic AI comes in
 Phase 5 behind a stubbed interface — this phase adds no NLP model dependency.
 
-## Candidates (bounded)
+## Candidates (bounded, centrally eligible)
 
 1. Time window: `latest_source_update_at >= now - CLUSTER_DEFAULT_LOOKBACK_HOURS`
    (default 48h; extended 120h available; category-specific windows later).
 2. Union of: URL/domain evidence hits + MinHash prefilter + Qdrant nearest
    neighbors + recency tail, capped at `CLUSTER_MAX_CANDIDATES` (default 30).
-3. Language mismatch never rejects; it only discounts lexical confidence.
+3. Every source passes `apps.stories.services.candidates.is_candidate_eligible`.
+   Vector hits that are missing, merged, archived, stale, or outside lookback are
+   filtered after Qdrant lookup. NULL timestamps are rejected.
+4. Decision `feature_snapshot.candidate_counts` records URL/MinHash/vector/recency
+   and eligible totals.
+5. Language mismatch never rejects; it only discounts lexical confidence.
 
 ## Similarity features (0..1)
 
@@ -50,11 +55,15 @@ overlap`, `language_match`.
 ## Qdrant (auxiliary only)
 
 MySQL is the source of truth. Qdrant holds vectors with deterministic point
-ids (`item-{pk}`); `ItemEmbedding(status)` tracks pending/indexed/failed/stale
-with a retry task. Qdrant failure never fails assignment. Full rebuild from
-MySQL is always possible. Compose runs `qdrant:v1.19.1` internally (no public
-port in production) plus an `intelligence` worker queue and a fastembed model
-cache volume.
+ids (`item-{pk}`) in identity-isolated collections
+(`{base}__{model}__d{dimension}__{hash}` for provider/model/version). Writes and
+reads require full embedding identity, mismatched payloads are dropped, an
+identity mismatch raises instead of silently mixing models, and invalid identity
+fails the embedding row without endless retry. `ItemEmbedding(status)` tracks
+pending/indexed/failed/stale with a retry task. Qdrant failure never fails
+assignment. Full rebuild from MySQL is always possible. Compose runs
+`qdrant:v1.19.1` internally (no public port in production) plus an
+`intelligence` worker queue and a fastembed model cache volume.
 
 ## Scoring, thresholds, vetoes
 
@@ -69,10 +78,24 @@ and `antonym_action_swap:<a><-><b>`; everything else complex stays ambiguous.
 ## Story representation & centroid
 
 Matching uses primary-item text + representative members, never just the
-first item. Centroid = capped mean (<=8 vectors: primary + newest-first),
-stored in `story.metadata.centroid`. Tradeoff: capped mean is cheap and
-stable; full re-embed of all members on every assignment would be O(n) per
+first item. `story.metadata` stores centroid plus identity and membership
+evidence (`centroid_provider`, `centroid_model`, `centroid_model_version`,
+`centroid_dimension`, `centroid_member_count`, `centroid_member_ids`,
+`centroid_updated_at`). Vectors from stale, failed, model-mismatched, or
+dimension-mismatched rows never enter the mean. Members are ordered primary
+first, then edited/newest first, capped at 8. Tradeoff: capped mean is cheap
+and stable; full re-embed of all members on every assignment would be O(n) per
 write with no measurable gain at current scale.
+
+## Freshness, sources, primary
+
+`latest_source_update_at = max(published_at, source_updated_at)` across current
+members. Telegram edits therefore advance freshness; ordinary saves do not.
+`observed_source_count` and `independent_source_count` are distinct configured
+sources, not item rows. UNKNOWN contribution policy is DB-configurable and
+auditable (`indep-v1+unknown-policy-v1:exclude|include`). Primary selection is
+`primary-v1`: items with a publication timestamp first, then earliest
+publication, then bounded trust/reliability, then completeness.
 
 ## Assignment, merge, reassign
 
@@ -88,11 +111,24 @@ only retires the source row).
 ## Counts & copy networks
 
 `observed_source_count` = distinct configured sources with current
-membership. `independent_source_count` counts only `independence=independent`
-members; `likely_copy` (forward origin, near-identical+signal) and `unknown`
-(single signal) do not fully count. Version `indep-v1` stored in metadata.
+membership. `independent_source_count` counts distinct sources with at least one
+`independent` member by default. `likely_copy` never counts. `unknown` is
+excluded by the conservative DB-overridable policy. Version
+`indep-v1+unknown-policy-v1:exclude|include` is stored in metadata.
 Forwards remain valuable observations with reduced independence weight — never
 double-counted as independent confirmations.
+
+## Benchmark
+
+`scripts/benchmark_clustering.py` reports overall and en/fa/en-fa slices plus
+latency/model size. Fake provider is the offline CI regression on
+`tests/fixtures/clustering_benchmark.json` (currently 75 pairs). A real run was
+attempted with `paraphrase-multilingual-MiniLM-L12-v2`, but the model download
+did not complete in this sandbox, so no real-model numbers are reported here.
+Do not interpret fake-provider figures as real embedding quality. Priority:
+false merge, then precision, then recall; thresholds are not overfit to this
+small fixture. `ClusteringDecision.relationship` reserves same/material/related/
+unrelated labels for future AI classifiers.
 
 ## Observability
 
