@@ -201,6 +201,13 @@ class SourceItemRevision(models.Model):
         return f"rev{self.revision_number} of item {self.source_item_id}"
 
 
+class SnapshotReason(models.TextChoices):
+    INITIAL = "initial", "Initial ingest observation"
+    MILESTONE = "milestone", "Scheduled milestone capture"
+    EDIT_OBSERVATION = "edit_observation", "Re-observation on edit/update"
+    MANUAL = "manual", "Manual capture"
+
+
 class EngagementSnapshot(TimeStampedModel):
     """Point-in-time metrics. NULL = unknown platform value, never conflated with 0."""
 
@@ -214,6 +221,12 @@ class EngagementSnapshot(TimeStampedModel):
     replies = models.PositiveBigIntegerField(null=True, blank=True, default=None)
     saves = models.PositiveBigIntegerField(null=True, blank=True, default=None)
     raw_metrics = models.JSONField(default=dict, blank=True)
+    capture_reason = models.CharField(
+        max_length=16,
+        choices=SnapshotReason.choices,
+        default=SnapshotReason.MILESTONE,
+        help_text="Why this snapshot was taken; baseline queries filter on this.",
+    )
 
     target_age_seconds = models.PositiveIntegerField(
         null=True,

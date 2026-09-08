@@ -9,7 +9,6 @@ Order of operations (crash-safe):
 
 from __future__ import annotations
 
-import asyncio
 import time
 import uuid
 from typing import Any
@@ -21,7 +20,14 @@ from apps.core.redaction import sanitize_error_message
 from apps.news.services.engagement_tracking import schedule_tracking
 from apps.news.services.persistence import ingestion_persistence_service
 from apps.sources.adapters import FetchContext, adapter_registry
-from apps.sources.models import FetchRun, FetchRunStatus, Source, SourceCheckpoint
+from apps.sources.models import (
+    FetchRun,
+    FetchRunStatus,
+    Source,
+    SourceCheckpoint,
+    TelegramAccountRuntimeState,
+)
+from apps.sources.telegram_runtime import get_telegram_runtime
 
 LOCK_PREFIX = "fetch:source:"
 LOCK_TIMEOUT = 300
@@ -78,6 +84,22 @@ class TelegramIngestService:
                     "source_id": source_id,
                     "correlation_id": cid,
                 }
+            configuration = dict(source.configuration or {})
+            account_key = str(configuration.get("account_key", "") or "default")
+            account_state = TelegramAccountRuntimeState.objects.filter(
+                account_key=account_key
+            ).first()
+            if (
+                account_state
+                and account_state.cooldown_until
+                and account_state.cooldown_until > now
+            ):
+                return {
+                    "status": "skipped",
+                    "reason": "account_cooldown",
+                    "source_id": source_id,
+                    "correlation_id": cid,
+                }
             run = FetchRun.objects.create(
                 source=source, started_at=now, status=FetchRunStatus.RUNNING, correlation_id=cid
             )
@@ -107,7 +129,11 @@ class TelegramIngestService:
                 max_bytes=int(configuration.get("max_bytes", 5 * 1024 * 1024)),
                 correlation_id=cid,
             )
-            result = asyncio.run(adapter.fetch(context))
+            # The adapter is stateless w.r.t. the event loop: network I/O runs
+            # on the stable per-process Telegram runtime loop via the shared
+            # client manager (no asyncio.run() per fetch, no cross-loop reuse).
+            runtime = get_telegram_runtime()
+            result = runtime.run_sync(adapter.fetch, context)
             persist_res = self.persistence.persist_items(source, result.items)
 
             # Advance checkpoint only after successful persistence.
@@ -121,20 +147,28 @@ class TelegramIngestService:
                 new_last = max([last_id, *ids])
                 checkpoint.last_external_id = str(new_last)
                 checkpoint.state = {**(checkpoint.state or {}), "last_message_id": new_last}
-                if not checkpoint.last_published_at:
-                    published = [i.published_at for i in result.items if i.published_at]
-                    if published:
-                        checkpoint.last_published_at = max(published)
+                # last_published_at = max ever observed (monotonic, never only-first).
+                published = [i.published_at for i in result.items if i.published_at]
+                if published:
+                    batch_max = max(published)
+                    if (
+                        checkpoint.last_published_at is None
+                        or batch_max > checkpoint.last_published_at
+                    ):
+                        checkpoint.last_published_at = batch_max
                 checkpoint.save()
 
-            # Resolve stable peer id once (non-secret cache for renames).
+            # Resolve stable peer id once (non-secret cache for renames) and
+            # persist it immediately: record_fetch_success() must not be the
+            # only writer or renames break identity on the next process.
             peer_id = None
             for item in result.items:
                 peer_id = (item.source_metadata or {}).get("peer_id")
                 if peer_id is not None:
                     break
-            if peer_id is not None and not source.platform_external_id:
+            if peer_id is not None and str(peer_id) != (source.platform_external_id or ""):
                 source.platform_external_id = str(peer_id)
+                source.save(update_fields=["platform_external_id", "updated_at"])
 
             for created in persist_res.created_items:
                 try:
@@ -179,7 +213,8 @@ class TelegramIngestService:
                 run.save()
             try:
                 source = Source.objects.get(pk=source_id)
-                # FloodWait cooldown: honour server delay so the scheduler backs off.
+                # FloodWait cooldown: per-source backoff + account-wide runtime
+                # state so sibling sources on the same account back off too.
                 retry_after = getattr(exc, "retry_after", None)
                 if retry_after:
                     try:
@@ -188,6 +223,18 @@ class TelegramIngestService:
                         secs = 60
                     source.cooldown_until = timezone.now() + timezone.timedelta(seconds=secs)
                     source.save(update_fields=["cooldown_until", "updated_at"])
+                    account_key = str(
+                        (source.configuration or {}).get("account_key", "") or "default"
+                    )
+                    TelegramAccountRuntimeState.objects.update_or_create(
+                        account_key=account_key,
+                        defaults={
+                            "cooldown_until": source.cooldown_until,
+                            "last_error_type": type(exc).__name__,
+                            "last_error_at": timezone.now(),
+                            "consecutive_failures": 1,
+                        },
+                    )
                 source.record_fetch_failure()
             except Source.DoesNotExist:
                 pass

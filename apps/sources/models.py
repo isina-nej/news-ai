@@ -78,13 +78,17 @@ class Source(TimeStampedModel):
         super().save(*args, **kwargs)
 
     def record_fetch_success(self, *, now: datetime | None = None) -> None:
-        """Update source health after a successful fetch."""
+        """Update source health after a successful fetch.
+
+        Writes ONLY health fields. Callers persist unrelated fields
+        (configuration, platform_external_id, cooldown_until) explicitly
+        before calling this, so unrelated state is never silently dropped
+        or accidentally overwritten here.
+        """
         current_time = now or timezone.now()
         self.last_success_at = current_time
         self.consecutive_failures = 0
-        self.save(
-            update_fields=["last_success_at", "consecutive_failures", "configuration", "updated_at"]
-        )
+        self.save(update_fields=["last_success_at", "consecutive_failures", "updated_at"])
 
     def record_fetch_failure(self, *, now: datetime | None = None) -> None:
         """Update source health after a failed fetch."""
@@ -150,6 +154,8 @@ class SourceCheckpoint(models.Model):
     adapter = models.CharField(max_length=32, default="telegram")
     # Telegram semantics: highest message id observed (inclusive).
     last_external_id = models.CharField(max_length=512, null=True, blank=True, default=None)
+    # Max published_at observed across ALL successful batches (monotonic).
+    # Updated on every batch; never first-batch-only.
     last_published_at = models.DateTimeField(null=True, blank=True, default=None)
     state = models.JSONField(
         default=dict,
@@ -169,6 +175,29 @@ class SourceCheckpoint(models.Model):
 
     def __str__(self) -> str:
         return f"checkpoint {self.source_id}/{self.adapter} @{self.last_external_id}"
+
+
+class TelegramAccountRuntimeState(models.Model):
+    """Non-secret operational state per Telegram account (account-wide, not per-source).
+
+    FloodWait can be account-wide: hammering source B right after source A hit
+    an account-level limit would burn quota and risk more limits. The scheduler
+    checks this row before dispatching ANY source on the account; per-source
+    ``Source.cooldown_until`` remains for source-specific backoff. No secrets here.
+    """
+
+    account_key = models.CharField(max_length=64, unique=True)
+    cooldown_until = models.DateTimeField(null=True, blank=True, default=None)
+    last_error_type = models.CharField(max_length=64, blank=True, default="")
+    last_error_at = models.DateTimeField(null=True, blank=True, default=None)
+    consecutive_failures = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["account_key"])]
+
+    def __str__(self) -> str:
+        return f"tg-account {self.account_key} cooldown_until={self.cooldown_until}"
 
 
 class EngagementTrackingState(models.Model):

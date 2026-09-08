@@ -41,9 +41,14 @@ def _parse_schedule(value: object) -> list[int]:
 
 
 def _next_milestone_after(age_seconds: int, schedule: list[int]) -> int | None:
+    """First schedule bucket strictly greater than the item age in seconds.
+
+    Schedule entries are minutes; comparison is in seconds so a 5-minute-old
+    item (300s) maps to the 10-minute bucket (600s), not the 30-minute one.
+    """
     for minutes in schedule:
-        if minutes * 60 > age_seconds:
-            return minutes
+        if int(minutes) * 60 > int(age_seconds):
+            return int(minutes)
     return None
 
 
@@ -88,8 +93,15 @@ def advance_tracking(
     *,
     now: datetime | None = None,
     schedule_minutes: list[int] | None = None,
+    completed_target_age_seconds: int | None = None,
 ) -> EngagementTrackingState:
-    """Move tracking state to the next future milestone after a capture."""
+    """Move tracking state to the next future milestone after a capture.
+
+    ``completed_target_age_seconds`` marks the milestone just recorded. When
+    the wall clock has not yet crossed the next bucket (e.g. immediate retry
+    after a crash), the next milestone is strictly greater than the completed
+    one — otherwise tracking would wedge on the same bucket forever.
+    """
     current = now or timezone.now()
     schedule = (
         _parse_schedule(schedule_minutes) if schedule_minutes else snapshot_schedule_minutes()
@@ -103,6 +115,17 @@ def advance_tracking(
         return state
     age_seconds = max(0, int((current - published_at).total_seconds()))
     nxt = _next_milestone_after(age_seconds, schedule)
+    if completed_target_age_seconds is not None and nxt is not None:
+        try:
+            completed_minutes = int(completed_target_age_seconds)
+        except (TypeError, ValueError):
+            completed_minutes = None
+        # NOTE: tracking buckets are stored in MINUTES (10/30/60/...), while
+        # snapshot help_text cites seconds. completed_* arrives in the same
+        # minutes unit as nxt; compare like-for-like, not minutes*60.
+        if completed_minutes is not None and nxt <= completed_minutes:
+            later = [m for m in schedule if m > completed_minutes]
+            nxt = later[0] if later else None
     if nxt is None:
         state.active = False
         state.next_due_at = None

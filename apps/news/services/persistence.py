@@ -231,7 +231,18 @@ class IngestionPersistenceService:
                                 result.duplicate_count += 1
                     else:
                         result.duplicate_count += 1
-                    self._record_snapshot(existing, item, now=now)
+                    # Routine re-poll observations must NOT spam ad-hoc snapshots:
+                    # milestones are scheduled via EngagementTrackingState and
+                    # captured by the refresh path with capture_reason="milestone".
+                    # Only genuine edits earn an edit_observation here.
+                    if (
+                        result.updated_count
+                        and result.updated_items
+                        and result.updated_items[-1].pk == existing.pk
+                    ):
+                        self._record_snapshot(
+                            result.updated_items[-1], item, now=now, reason="edit_observation"
+                        )
                     continue
 
             # 4b. URL / content exact dedupe (unchanged semantics).
@@ -288,7 +299,12 @@ class IngestionPersistenceService:
         return result
 
     def _record_snapshot(
-        self, source_item: SourceItem, item: FetchedItem, *, now: datetime
+        self,
+        source_item: SourceItem,
+        item: FetchedItem,
+        *,
+        now: datetime,
+        reason: str = "initial",
     ) -> None:
         """Write the initial/immediate engagement snapshot when metrics are present."""
         from apps.news.models import EngagementSnapshot  # local import: avoid cycle
@@ -312,6 +328,7 @@ class IngestionPersistenceService:
                 replies=item.replies,
                 saves=None,
                 raw_metrics=raw_metrics,
+                capture_reason=reason,
             )
         except IntegrityError:
             pass

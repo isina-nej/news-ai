@@ -115,7 +115,8 @@ class SourceFetchService:
             # 8. Persist and dedupe items (synchronous ORM)
             persist_res = self.persistence.persist_items(source, result.items)
 
-            # 9. Update HTTP cache validators on Source configuration
+            # 9. Update HTTP cache validators on Source configuration, persisted
+            # explicitly BEFORE record_fetch_success() (which writes health only).
             if result.etag or result.last_modified:
                 cfg = dict(source.configuration)
                 if result.etag:
@@ -123,6 +124,7 @@ class SourceFetchService:
                 if result.last_modified:
                     cfg["_http_last_modified"] = result.last_modified
                 source.configuration = cfg
+                source.save(update_fields=["configuration", "updated_at"])
 
             source.record_fetch_success()
 

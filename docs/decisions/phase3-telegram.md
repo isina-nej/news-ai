@@ -1,6 +1,6 @@
 # ADR: Phase 3 Telegram User-Session Ingestion
 
-Date: 2026-09-08. Status: accepted.
+Date: 2026-09-08. Status: accepted. Amended by Phase 3.1 (2026-09-08).
 
 ## 1. Kurigram client lifecycle (dedicated queue + loop-bound manager)
 
@@ -82,3 +82,49 @@ timestamp-keyed snapshots collide across workers.
 - FloodWait (`FloodWait.seconds`) maps to `RateLimitError(retry_after)` with
   Celery backoff+jitter plus auditable `Source.cooldown_until` so the
   scheduler backs off instead of busy-looping.
+
+## 5. Phase 3.1 amendments (stable runtime, idempotent milestones)
+
+**Lifecycle (replaces per-fetch `asyncio.run()`):** `apps/sources/telegram_runtime.py`
+owns one asyncio loop on a background thread per worker process. Sync Celery
+code enters via `run_sync()` (`run_coroutine_threadsafe`, stdlib only — no
+`nest_asyncio`, no monkey patching). One `TelegramClientManager` per account
+binds to that loop; loop mismatch rebuilds instead of reusing. Celery
+`worker_shutdown` signal + `atexit` stop all clients cleanly; a stopped handle
+is never reused without `start()`. Fetch and refresh share the same runtime
+object, verified by loop-identity regression tests.
+
+**Peer persist:** `platform_external_id` is written immediately
+(`update_fields=["platform_external_id", "updated_at"]`) when first resolved,
+not deferred to `record_fetch_success()` — which now writes health fields
+only, so unrelated in-memory mutations are never silently dropped. Web fetcher
+persists `_http_etag`/`_http_last_modified` explicitly for the same reason.
+
+**Milestone retry safety:** `record_milestone_snapshot()` returns
+`(snapshot, created)`; on `IntegrityError` retry it reuses the existing row
+(`created=False`) and the caller still advances tracking with
+`completed_target_age_seconds`, so a crash between insert and advance can
+never wedge tracking on one bucket. `capture_reason`
+(initial/milestone/edit_observation/manual) lets future baselines exclude
+ad-hoc observations; routine re-polls write no ad-hoc snapshot, only genuine
+edits do.
+
+**Due-state claiming:** `_claim_due_states()` takes
+`select_for_update(skip_locked=True)` row locks in a transaction (MySQL 8.4
+InnoDB); concurrent refresh workers skip each other's rows. The milestone
+`UNIQUE` remains the final guard on backends without skip-locked.
+
+**Replies:** `_extract_reply_count()` reads stable inline containers
+(`replies`/`reply_info` dicts or objects with `replies_count`/`reply_count`/
+`count`; `get_discussion_replies_count` is a separate extra RPC, not scraped
+bulk). Known counts (incl. real 0) stored; unavailable stays `NULL`. No reply
+text or user identities collected.
+
+**Checkpoint:** `last_published_at` is the monotonic max over ALL batches
+(`max(prev, batch_max)`), never first-batch-only.
+
+**Account cooldown:** `TelegramAccountRuntimeState(account_key,
+cooldown_until, last_error_*)` holds account-wide FloodWait state; the ingest
+service checks it before every dispatch and skips with `account_cooldown`.
+Per-source `Source.cooldown_until` stays for source-specific backoff — the two
+are stored and checked separately, never conflated.
