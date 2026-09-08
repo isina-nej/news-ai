@@ -111,7 +111,7 @@
 
 ## Phase 9 — Audience Learning + Scheduler + Observability
 - Status: Completed (offline/CI regression green)
-- SHA: Pending commit
+- SHA: `e0b7ffe`
 - CI Run: Pending push (blocked on external GitHub credentials in sandbox)
 - Tests: 197 passed, 1 skipped
 - Migrations: none
@@ -125,3 +125,25 @@
   - Vowpal Wabbit C++ backend optional; bandit runs statistical expected-performance layer by default.
 - Skipped Live Integrations:
   - None required for Phase 9.
+
+---
+
+## Phase 10 — Twitter/X Real Ingestion
+- Status: Completed (offline/CI regression green; live Twitter session skipped without credentials)
+- SHA: Pending commit
+- CI Run: Pending push (blocked on external GitHub credentials in sandbox)
+- Tests: 204 passed, 1 skipped
+- Migrations: none
+- Important Architecture Decisions:
+  - `TwitterSourceAdapter` implements `SourceAdapter` protocol via injected `TwitterSessionClient`.
+  - Credentials in `TWITTER_SESSION` environment variable only; never persisted in DB or logged.
+  - Standard `FetchedItem` mapping with complete engagement metrics; unavailable metrics stay `None`.
+  - Retweets flagged as non-independent confirmation (`independent_confirmation=False`).
+  - Quote tweets ingested as independent items with quoted tweet metadata preserved in `raw_payload`.
+  - Checkpointing via `SourceCheckpoint(adapter="twitter")` ensures crash-safe at-least-once ingestion.
+  - Fast-failing authentication and rate limits set `cooldown_until` on source without retry storms.
+  - Governed by feature flag `ENABLE_TWITTER_SOURCE` (default `False`).
+- Known Limitations:
+  - Live X session cookies not configured in test environment; live network fetch skipped.
+- Skipped Live Integrations:
+  - Live Twitter/X session network requests.

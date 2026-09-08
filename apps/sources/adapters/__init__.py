@@ -24,6 +24,7 @@ from apps.sources.adapters.registry import AdapterNotFoundError, AdapterRegistry
 from apps.sources.adapters.rss import RSSSourceAdapter
 from apps.sources.adapters.rsshub import RSSHubAdapter
 from apps.sources.adapters.telegram import TelegramSourceAdapter
+from apps.sources.adapters.twitter import TwitterSessionClient, TwitterSourceAdapter
 
 # Register standard adapters for Phase 2
 adapter_registry.register(Platform.RSS, "rss", factory=RSSSourceAdapter)
@@ -35,6 +36,9 @@ adapter_registry.register(Platform.WEBSITE_HTML, "", factory=HTMLSourceAdapter)
 # Telegram user-session ingestion (Kurigram). adapter_type "telegram" explicit + platform fallback.
 adapter_registry.register(Platform.TELEGRAM, "telegram", factory=TelegramSourceAdapter)
 adapter_registry.register(Platform.TELEGRAM, "", factory=TelegramSourceAdapter)
+# Twitter/X session-based read-only ingestion. Explicit opt-in via ENABLE_TWITTER_SOURCE.
+adapter_registry.register(Platform.TWITTER_X, "twitter", factory=TwitterSourceAdapter)
+adapter_registry.register(Platform.TWITTER_X, "", factory=TwitterSourceAdapter)
 
 __all__ = [
     "AdapterError",
@@ -59,6 +63,8 @@ __all__ = [
     "SourceAdapter",
     "TelegramSourceAdapter",
     "TimeoutError",
+    "TwitterSessionClient",
+    "TwitterSourceAdapter",
     "adapter_registry",
     "default_http_client",
 ]

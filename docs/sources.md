@@ -63,6 +63,20 @@ Source.objects.create(
 ```
 `HTMLSourceAdapter` fetches via `SafeHttpClient`, runs `trafilatura` article extraction (title, author, published date, canonical URL, main body), and falls back to semantic HTML container extraction if necessary.
 
+### 4. Adding a Twitter/X Source
+Create a `Source` with `platform="twitter_x"`:
+```python
+Source.objects.create(
+    name="OpenAI on X",
+    platform="twitter_x",
+    identifier="@OpenAI",
+    url="https://x.com/OpenAI",
+    configuration={"username": "OpenAI", "limit": 50},
+    fetch_interval_seconds=600,
+)
+```
+`TwitterSourceAdapter` ingests tweets via an injected session client (`TWITTER_SESSION` in env) without scraping bypass automation or official API dependency. Retweets are marked observational only (`independent_confirmation=False`), while quote tweets are ingested as independent items with referenced metadata preserved. Cursors are stored in `SourceCheckpoint` for crash-safe incremental ingestion. Explicit enablement requires `ENABLE_TWITTER_SOURCE=true`.
+
 ## Writing a New Adapter
 
 1. Subclass `SourceAdapter`:

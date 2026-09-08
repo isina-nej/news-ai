@@ -120,6 +120,7 @@ FEATURE_FLAGS = {
     "ENABLE_AUDIENCE_LEARNING": env.bool("ENABLE_AUDIENCE_LEARNING", default=True),
     "ENABLE_EXPLORATION": env.bool("ENABLE_EXPLORATION", default=True),
 }
+TWITTER_SESSION = env("TWITTER_SESSION", default="")
 RSSHUB_BASE_URL = env("RSSHUB_BASE_URL", default="http://rsshub:1200")
 RSSHUB_TRUSTED_HOSTS = env.list("RSSHUB_TRUSTED_HOSTS", default=["rsshub"])
 SESSION_ENCRYPTION_KEY = env("SESSION_ENCRYPTION_KEY", default="")
