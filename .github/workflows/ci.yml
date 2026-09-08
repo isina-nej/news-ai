@@ -28,11 +28,12 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 5
       qdrant:
+        # No health-check options: the qdrant image ships neither wget nor
+        # curl, so a CMD-based probe always reports unhealthy and fails the
+        # job. The app treats Qdrant as optional (failure => FAILED state +
+        # retry), so tests pass even if it is still booting.
         image: qdrant/qdrant:v1.19.1
         ports: ["6333:6333"]
-        options: >-
-          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:6333/ || exit 1"
-          --health-interval 10s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: mysql://newsai:newsai@127.0.0.1:3306/newsai_verify
       REDIS_URL: redis://127.0.0.1:6379/0
