@@ -8,7 +8,7 @@
 
 ## Phase 4.1 — Clustering Correctness & Real Benchmark
 - Status: Completed (offline/CI regression green; real-model download skipped due to sandbox network limits; push pending host credentials)
-- SHA: `fabbec8`
+- SHA: `2a40455`
 - CI Run: Pending push (blocked on external GitHub credentials in sandbox)
 - Tests: 136 passed, 1 skipped (`test_telegram_live_smoke` requires credentials)
 - Migrations: `stories.0004_clusteringdecision_relationship_and_more`
@@ -24,3 +24,26 @@
   - Live embedding download (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`) timed out in sandbox; benchmark script ran with deterministic `FakeEmbeddingProvider`.
 - Skipped Live Integrations:
   - Hugging Face / FastEmbed live download.
+
+---
+
+## Phase 5 — AI Intelligence Layer
+- Status: Completed (offline/CI regression green; live provider calls skipped without external credentials)
+- SHA: Pending commit
+- CI Run: Pending push (blocked on external GitHub credentials in sandbox)
+- Tests: 152 passed, 1 skipped
+- Migrations: `ai.0001_initial`
+- Important Architecture Decisions:
+  - Provider abstraction with default `FakeAIProvider` and optional `OpenAICompatibleProvider`. Domain depends only on the application service.
+  - Prompt registry in `apps/ai/prompts/` addressing versioned text templates.
+  - Machine outputs validated via Pydantic; malformed responses repaired once, then recorded as `invalid_response`.
+  - Audited `AICallLog` records latency, token counts, cache status, model, and sanitized errors. No secrets or raw texts stored.
+  - Result caching keyed on `(task, prompt_version, model, input_hash)`.
+  - Cheap model handles topic/subtopic mapping; strong model handles judge, conflict, novelty, and draft tasks.
+  - Combinatorial credibility blends source trust, independent spread, copy network, conflict penalties, and AI credibility.
+  - Ambiguous clustering decisions are judged conservatively; low confidence leaves stories split and reversible.
+  - AI tasks ledger tracks `pending/processing/done/failed` asynchronously without blocking ingestion.
+- Known Limitations:
+  - External live OpenAI/LiteLLM call skipped (no live credentials in sandbox).
+- Skipped Live Integrations:
+  - Live OpenAI-compatible provider calls.

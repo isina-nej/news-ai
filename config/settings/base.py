@@ -91,9 +91,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 SNAPSHOT_SCHEDULE_MIN = [int(x) for x in env("SNAPSHOT_SCHEDULE_MIN").split(",") if x.strip()]
 EXPLORATION_RATE = env("EXPLORATION_RATE")
 FEATURE_FLAGS = {
-    "ENABLE_AI_CLUSTERING": env("ENABLE_AI_CLUSTERING"),
-    "ENABLE_AUTO_PUBLISH": env("ENABLE_AUTO_PUBLISH"),
-    "ENABLE_TWITTER_SOURCE": env("ENABLE_TWITTER_SOURCE"),
+    "ENABLE_AI": env.bool("ENABLE_AI", default=True),
+    "ENABLE_AI_CLUSTERING": env.bool("ENABLE_AI_CLUSTERING", default=False),
+    "ENABLE_AUTO_PUBLISH": env.bool("ENABLE_AUTO_PUBLISH", default=False),
+    "ENABLE_TWITTER_SOURCE": env.bool("ENABLE_TWITTER_SOURCE", default=False),
+    "ENABLE_QDRANT": env.bool("ENABLE_QDRANT", default=True),
+    "ENABLE_AUDIENCE_LEARNING": env.bool("ENABLE_AUDIENCE_LEARNING", default=True),
+    "ENABLE_EXPLORATION": env.bool("ENABLE_EXPLORATION", default=True),
 }
 RSSHUB_BASE_URL = env("RSSHUB_BASE_URL", default="http://rsshub:1200")
 RSSHUB_TRUSTED_HOSTS = env.list("RSSHUB_TRUSTED_HOSTS", default=["rsshub"])
@@ -124,6 +128,17 @@ CLUSTER_DEFAULT_LOOKBACK_HOURS = env.int("CLUSTER_DEFAULT_LOOKBACK_HOURS", defau
 CLUSTER_EXTENDED_LOOKBACK_HOURS = env.int("CLUSTER_EXTENDED_LOOKBACK_HOURS", default=120)
 MINHASH_NUM_PERM = env.int("MINHASH_NUM_PERM", default=128)
 MINHASH_SCHEME = env("MINHASH_SCHEME", default="affine32")
+
+# Phase 5 AI layer settings
+AI_PROVIDER = env("AI_PROVIDER", default="fake")
+AI_BASE_URL = env("AI_BASE_URL", default="")
+AI_API_KEY = env("AI_API_KEY", default="")
+AI_MODEL = env("AI_MODEL", default="gpt-4o-mini")
+AI_MODEL_CHEAP = env("AI_MODEL_CHEAP", default=env("AI_MODEL", default="gpt-4o-mini"))
+AI_MODEL_STRONG = env("AI_MODEL_STRONG", default=env("AI_MODEL", default="gpt-4o"))
+AI_TIMEOUT = env.float("AI_TIMEOUT", default=30.0)
+AI_MAX_RETRIES = env.int("AI_MAX_RETRIES", default=2)
+AI_CACHE_TTL_SECONDS = env.int("AI_CACHE_TTL_SECONDS", default=86400)
 
 LOGGING = {
     "version": 1,
