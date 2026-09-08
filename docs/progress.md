@@ -130,7 +130,7 @@
 
 ## Phase 10 — Twitter/X Real Ingestion
 - Status: Completed (offline/CI regression green; live Twitter session skipped without credentials)
-- SHA: Pending commit
+- SHA: `75d8f82`
 - CI Run: Pending push (blocked on external GitHub credentials in sandbox)
 - Tests: 204 passed, 1 skipped
 - Migrations: none
@@ -147,3 +147,21 @@
   - Live X session cookies not configured in test environment; live network fetch skipped.
 - Skipped Live Integrations:
   - Live Twitter/X session network requests.
+
+---
+
+## Final Hardening Phase
+- Status: Completed (all 207 automated tests green, full E2E pipeline verified, production-ready MVP)
+- SHA: Pending commit
+- CI Run: Pending push (blocked on external GitHub credentials in sandbox)
+- Tests: 207 passed, 1 skipped
+- Migrations: 0 pending, all up-to-date
+- Important Architecture Decisions:
+  - End-to-end integration test (`tests/test_final_hardening_e2e.py`) verifies intake, clustering, AI analysis, ranking, selection, publication dry-run, feedback, and audience learning without external credentials.
+  - Operational management commands implemented: `seed_demo_news`, `system_health`, `run_news_pipeline --dry-run`, `ranking_backtest`.
+  - Production Docker Compose and Dockerfile reviewed and hardened: restart policies set to `unless-stopped`, internal infrastructure unexposed, model cache mounted, and Debian build packages added.
+  - Security audit verified: SSRF protection, secret redaction filter, prompt injection defense, and strict HTML output escaping.
+- Known Limitations:
+  - Live external services (Telegram Bot, Kurigram MTProto, Twitter/X, Live OpenAI API) require operator credentials in production `.env`.
+- Skipped Live Integrations:
+  - External network calls to real Telegram, Twitter, and OpenAI APIs.

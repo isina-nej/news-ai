@@ -149,12 +149,18 @@ class SelectionService:
             "boost": boost,
         }
 
+        topic_slug = story.primary_topic.slug if story.primary_topic else None
         cls._log_decision(
             story=story,
             action=action,
             predicted_reward=adjusted,
             scored=scored,
-            detail={"reason": reason, "penalties": penalties, "material_update": material_update},
+            detail={
+                "reason": reason,
+                "penalties": penalties,
+                "material_update": material_update,
+                "topic_slug": topic_slug,
+            },
         )
 
         return {

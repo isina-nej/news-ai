@@ -35,6 +35,7 @@ def to_score_decimal(val: float | Decimal | None) -> Decimal:
     clamped = max(0.0, min(1.0, f))
     return Decimal(str(clamped)).quantize(Decimal("0.0001"))
 
+
 UNIT_INTERVAL = [MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("1"))]
 
 
