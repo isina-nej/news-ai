@@ -82,6 +82,26 @@ CELERY_TASK_ROUTES = {
 CELERY_TASK_DEFAULT_QUEUE = "celery"
 PLATFORM_API_TOKEN = env("PLATFORM_API_TOKEN", default="")
 
+# Phase 9 scheduled tasks wiring (Beat DatabaseScheduler in production)
+CELERY_BEAT_SCHEDULE = {
+    "dispatch-due-sources-every-2-min": {
+        "task": "apps.ops.tasks.dispatch_due_sources_task",
+        "schedule": 120.0,
+    },
+    "dispatch-pending-clustering-every-2-min": {
+        "task": "apps.ops.tasks.dispatch_pending_clustering_task",
+        "schedule": 120.0,
+    },
+    "dispatch-ranking-refresh-hourly": {
+        "task": "apps.ops.tasks.dispatch_ranking_refresh_task",
+        "schedule": 3600.0,
+    },
+    "dispatch-publication-queue-every-10-min": {
+        "task": "apps.ops.tasks.dispatch_publication_queue_task",
+        "schedule": 600.0,
+    },
+}
+
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_TZ = True

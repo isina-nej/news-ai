@@ -92,7 +92,7 @@
 
 ## Phase 8 — API + Admin + Operations
 - Status: Completed (offline/CI regression green)
-- SHA: Pending commit
+- SHA: `165e542`
 - CI Run: Pending push (blocked on external GitHub credentials in sandbox)
 - Tests: 182 passed, 1 skipped
 - Migrations: none
@@ -106,3 +106,22 @@
   - None.
 - Skipped Live Integrations:
   - None required for Phase 8.
+
+---
+
+## Phase 9 — Audience Learning + Scheduler + Observability
+- Status: Completed (offline/CI regression green)
+- SHA: Pending commit
+- CI Run: Pending push (blocked on external GitHub credentials in sandbox)
+- Tests: 197 passed, 1 skipped
+- Migrations: none
+- Important Architecture Decisions:
+  - `AudienceLearningService` tracks feature preferences independently using EWMA and Bayesian smoothing with recency decay, preventing confounding between topic, style, and timing effects.
+  - `ContextualBanditService` implements guarded exploration (`EXPLORATION_RATE=0.05`) restricted strictly to pre-screened safe editorial variants; never bypasses gates or rate limits.
+  - `CELERY_BEAT_SCHEDULE` orchestrates source fetching, pending clustering, ranking refreshes, and publication queue.
+  - `MetricsRegistry` and structured logging with correlation IDs (`correlation_id`, `job_id`, `story_id`, `fetch_run_id`).
+  - Documented retention policies for logs, payloads, snapshots, and decisions.
+- Known Limitations:
+  - Vowpal Wabbit C++ backend optional; bandit runs statistical expected-performance layer by default.
+- Skipped Live Integrations:
+  - None required for Phase 9.

@@ -19,6 +19,22 @@ from apps.core.choices import ContentType, Platform
 from apps.core.models import TimeStampedModel
 from apps.ranking import metrics as metric_registry
 
+
+def to_score_decimal(val: float | Decimal | None) -> Decimal:
+    """Standardize any score to 0.0000..1.0000 Decimal. Shared by Ranking & Learning."""
+    import math
+
+    if val is None:
+        return Decimal("0.0000")
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return Decimal("0.0000")
+    if not math.isfinite(f):
+        return Decimal("0.0000")
+    clamped = max(0.0, min(1.0, f))
+    return Decimal(str(clamped)).quantize(Decimal("0.0001"))
+
 UNIT_INTERVAL = [MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("1"))]
 
 
