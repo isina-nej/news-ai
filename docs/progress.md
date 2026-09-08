@@ -72,7 +72,7 @@
 
 ## Phase 7 — Telegram Publishing + Publishing Policy
 - Status: Completed (offline/CI regression green; live Bot sending skipped without credentials)
-- SHA: Pending commit
+- SHA: `13fdf0f`
 - CI Run: Pending push (blocked on external GitHub credentials in sandbox)
 - Tests: 173 passed, 1 skipped
 - Migrations: none
@@ -87,3 +87,22 @@
   - Live Telegram bot credentials not present in sandbox; live send skipped.
 - Skipped Live Integrations:
   - Live Telegram Bot API delivery.
+
+---
+
+## Phase 8 — API + Admin + Operations
+- Status: Completed (offline/CI regression green)
+- SHA: Pending commit
+- CI Run: Pending push (blocked on external GitHub credentials in sandbox)
+- Tests: 182 passed, 1 skipped
+- Migrations: none
+- Important Architecture Decisions:
+  - Django Ninja versioned operations API under `/api/v1/` with automatic OpenAPI docs.
+  - Strict ordering allowlists and safe pagination on all collection resources.
+  - Manual operational actions (rescore, recluster, merge, reassign, approve, reject, dry-run-publish, trigger-fetch) with complete `AuditLog` logging.
+  - Omission of raw payloads and secrets from API response models.
+  - Feature flags exposed for runtime observability.
+- Known Limitations:
+  - None.
+- Skipped Live Integrations:
+  - None required for Phase 8.

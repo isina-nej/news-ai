@@ -80,6 +80,7 @@ CELERY_TASK_ROUTES = {
     "apps.sources.tasks.refresh_telegram_engagement_task": {"queue": "telegram"},
 }
 CELERY_TASK_DEFAULT_QUEUE = "celery"
+PLATFORM_API_TOKEN = env("PLATFORM_API_TOKEN", default="")
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
