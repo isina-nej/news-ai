@@ -1,3 +1,9 @@
+"""Host-only quick development: SQLite, LocMem cache, eager Celery.
+
+Do not use this module for Docker or production-like validation. Docker Compose
+uses ``config.settings.docker`` with real MySQL, Redis, and Qdrant.
+"""
+
 from .base import *  # noqa
 
 DEBUG = True

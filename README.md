@@ -31,29 +31,43 @@ cd news-ai
 cp .env.example .env
 ```
 
-### 2. Run with Docker Compose (Recommended)
+### 2. Run with Docker Compose (production-like: real MySQL/Redis/Qdrant)
 ```bash
-# Build and launch MySQL, Redis, Qdrant, Web, Workers, Beat
-docker compose up --build -d
+# Build and launch MySQL, Redis, Qdrant, Web, Workers, Beat.
+# App services run config.settings.docker (real MySQL/Redis/Qdrant);
+# host-only config.settings.local (SQLite/LocMem) is never used here.
+docker compose up --build -d mysql redis qdrant
+docker compose up --build -d web worker intelligence-worker telegram-worker beat
 
-# Run database migrations
+# Run database migrations inside the web container (MySQL backend)
 docker compose exec web python manage.py migrate
 
 # Create superuser
 docker compose exec web python manage.py createsuperuser
+
+# Honest production-like health check (expects mysql + redis + qdrant OK)
+docker compose exec web python manage.py system_health
+
+# Clean demo validation inside Docker (idempotent seed + dry-run twice)
+docker compose exec web python manage.py seed_demo_news
+docker compose exec web python manage.py run_news_pipeline --dry-run
+docker compose exec web python manage.py run_news_pipeline --dry-run
 ```
 
-### 3. Local Development (uv / virtualenv)
+### 3. Host quick dev (SQLite/LocMem only, NOT production-like)
 ```bash
 uv venv .venv --python 3.12
 source .venv/bin/activate
 uv pip install -e . --extra dev
 
-# Run migrations (local SQLite default)
+# Run migrations (host SQLite default; does not validate MySQL/Redis/Qdrant)
 DJANGO_SETTINGS_MODULE=config.settings.local python manage.py migrate
 
-# Run system health check
+# Run system health check (honestly reports sqlite3 + LocMemCache here)
 python manage.py system_health
+
+# Fast unit/integration suite on the host
+pytest -q -p no:warnings
 ```
 
 ---

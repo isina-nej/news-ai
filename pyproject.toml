@@ -61,6 +61,7 @@ ignore = ["S101"]
 [tool.ruff.lint.per-file-ignores]
 "apps/*/migrations/*.py" = ["E501"]
 "config/settings/local.py" = ["F405"]
+"config/settings/docker.py" = ["F405"]
 "config/settings/prod.py" = ["F405"]
 
 [tool.pytest.ini_options]
