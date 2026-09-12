@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import timedelta
 from decimal import Decimal
 
@@ -105,19 +106,32 @@ class Command(BaseCommand):
             for item_spec in DEMO_ITEMS:
                 identifier, title, text, age, topic_slug, sub_slug, views, external_id = item_spec
                 src = sources[identifier]
-                item, created = SourceItem.objects.get_or_create(
-                    source=src,
-                    external_id=external_id,
-                    defaults={
-                        "title": title,
-                        "raw_text": text,
-                        "normalized_text": text,
-                        "published_at": now - age,
-                        "topic": topics[topic_slug],
-                        "subtopic": subtopics.get(sub_slug) if sub_slug else None,
-                        "language": src.language or "en",
-                    },
-                )
+                # ponytail: rows may predate demo external_ids (same content_hash
+                # with NULL external_id). Look up explicitly; get_or_create on
+                # external_id alone raises ValidationError (not IntegrityError)
+                # because save() runs full_clean with constraint checks.
+                item = SourceItem.objects.filter(source=src, external_id=external_id).first()
+                created = False
+                if item is None:
+                    content_hash = hashlib.sha256(text.strip().encode()).hexdigest()
+                    item = SourceItem.objects.filter(source=src, content_hash=content_hash).first()
+                    if item is not None:
+                        item.external_id = external_id
+                        item.save(update_fields=["external_id"])
+                    else:
+                        item = SourceItem(
+                            source=src,
+                            external_id=external_id,
+                            title=title,
+                            raw_text=text,
+                            normalized_text=text,
+                            published_at=now - age,
+                            topic=topics[topic_slug],
+                            subtopic=subtopics.get(sub_slug) if sub_slug else None,
+                            language=src.language or "en",
+                        )
+                        item.save()
+                        created = True
                 if created:
                     created_count += 1
                     EngagementSnapshot.objects.get_or_create(
