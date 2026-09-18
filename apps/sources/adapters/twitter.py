@@ -20,6 +20,7 @@ from apps.sources.adapters.base import (
     FetchedItem,
     FetchResult,
     NetworkError,
+    PermanentSourceError,
     RateLimitError,
     SourceAdapter,
 )
@@ -155,6 +156,8 @@ class TwitterSourceAdapter(SourceAdapter):
         except AuthenticationError:
             raise
         except RateLimitError:
+            raise
+        except PermanentSourceError:
             raise
         except Exception as exc:
             raise NetworkError(sanitize_error_message(str(exc))) from exc

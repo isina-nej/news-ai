@@ -148,3 +148,135 @@ def test_twitter_disabled_without_explicit_flag():
     )
     out = twitter_ingest_service.fetch_source(source.pk)
     assert out["status"] == "skipped"
+
+
+def test_parse_session_credentials():
+    from apps.sources.adapters.twitter_clients import parse_session_credentials
+
+    assert parse_session_credentials("") == {}
+    assert parse_session_credentials("auth123") == {"auth_token": "auth123"}
+    assert parse_session_credentials("auth_token=tok; ct0=csrf") == {
+        "auth_token": "tok",
+        "ct0": "csrf",
+    }
+    assert parse_session_credentials('{"auth_token": "j1", "ct0": "j2"}') == {
+        "auth_token": "j1",
+        "ct0": "j2",
+    }
+
+
+def test_env_session_client_auth_error():
+    import httpx
+
+    from apps.sources.adapters.base import AuthenticationError
+    from apps.sources.adapters.twitter_clients import EnvSessionClient
+
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(401, json={"error": "unauthorized"})
+    )
+    client = EnvSessionClient(session="auth_token=bad", transport=transport)
+    with pytest.raises(AuthenticationError):
+        client.fetch_user_tweets(username="target")
+
+
+def test_env_session_client_rate_limit_error():
+    import httpx
+
+    from apps.sources.adapters.base import RateLimitError
+    from apps.sources.adapters.twitter_clients import EnvSessionClient
+
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            429,
+            headers={"retry-after": "120"},
+            json={"error": "rate limited"},
+        )
+    )
+    client = EnvSessionClient(session="auth_token=ok", transport=transport)
+    with pytest.raises(RateLimitError) as exc_info:
+        client.fetch_user_tweets(username="target")
+    assert exc_info.value.retry_after == 120
+
+
+def test_env_session_client_not_found_error():
+    import httpx
+
+    from apps.sources.adapters.base import PermanentSourceError
+    from apps.sources.adapters.twitter_clients import EnvSessionClient
+
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(404, json={"error": "user not found"})
+    )
+    client = EnvSessionClient(session="auth_token=ok", transport=transport)
+    with pytest.raises(PermanentSourceError):
+        client.fetch_user_tweets(username="nonexistent")
+
+
+def test_env_session_client_parses_graphql_timeline():
+    import httpx
+
+    from apps.sources.adapters.twitter_clients import EnvSessionClient
+
+    tweet_data = {
+        "__typename": "Tweet",
+        "rest_id": "98765",
+        "core": {"user_results": {"result": {"legacy": {"screen_name": "techreporter"}}}},
+        "legacy": {
+            "full_text": "Live test tweet from X",
+            "created_at": "Tue Sep 08 14:00:00 +0000 2026",
+            "favorite_count": 42,
+            "retweet_count": 7,
+            "reply_count": 3,
+            "bookmark_count": 5,
+            "lang": "en",
+        },
+        "views": {"count": "1250"},
+    }
+    sample_gql = {
+        "data": {
+            "user": {
+                "result": {
+                    "timeline_v2": {
+                        "timeline": {
+                            "instructions": [
+                                {
+                                    "type": "TimelineAddEntries",
+                                    "entries": [
+                                        {
+                                            "entryId": "tweet-98765",
+                                            "content": {
+                                                "entryType": "TimelineTimelineItem",
+                                                "itemContent": {
+                                                    "itemType": "TimelineTweet",
+                                                    "tweet_results": {"result": tweet_data},
+                                                },
+                                            },
+                                        },
+                                        {
+                                            "entryId": "cursor-bottom-123",
+                                            "content": {
+                                                "entryType": "TimelineTimelineCursor",
+                                                "cursorType": "Bottom",
+                                                "value": "cursor_token_abc",
+                                            },
+                                        },
+                                    ],
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json=sample_gql))
+    client = EnvSessionClient(session="auth_token=valid_tok; ct0=csrf_tok", transport=transport)
+    page = client.fetch_user_tweets(username="techreporter", limit=10)
+    assert len(page["tweets"]) == 1
+    t = page["tweets"][0]
+    assert t["id"] == "98765"
+    assert t["text"] == "Live test tweet from X"
+    assert t["author"]["username"] == "techreporter"
+    assert t["public_metrics"]["like_count"] == 42
+    assert t["public_metrics"]["impression_count"] == "1250"
+    assert page["next_cursor"] == "cursor_token_abc"
