@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Fetch, AI-rewrite, AI-score, and publish news to Telegram."""
-import os, sys, time, subprocess
+import os
+import sys
+import time
 
 # Ensure we're in the project root
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,16 +18,21 @@ if "VIRTUAL_ENV" not in os.environ:
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 
 import django
+
 django.setup()
 
+import json
+import re
+
+import httpx
+
+from apps.ai.providers import get_provider
 from apps.core.choices import Platform
+from apps.news.models import SourceItem
+from apps.publishing.telegram import render_post
 from apps.sources.models import Source
 from apps.sources.services.fetcher import source_fetch_service
 from apps.stories.models import Story
-from apps.news.models import SourceItem
-from apps.publishing.telegram import render_post
-from apps.ai.providers import get_provider
-import httpx, json, re
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
@@ -57,12 +64,12 @@ def ai_rewrite(headline: str, body: str) -> dict:
         if match:
             data = json.loads(match.group())
             return data
-    except Exception as e:
+    except Exception:
         pass
     return {"title": headline[:100], "body": body[:300], "importance": 0.5, "topic": "news"}
 
-def publish(title: str, body: str) -> bool:
-    """Publish a story to Telegram channel."""
+def publish(title: str, body: str, photo_file_id: str | None = None) -> bool:
+    """Publish a story to Telegram channel, with optional photo."""
     if not BOT_TOKEN or not CHANNEL_ID:
         print("  [SKIP] No bot token or channel")
         return False
@@ -70,13 +77,31 @@ def publish(title: str, body: str) -> bool:
     rendered = render_post(headline=title, body=body)
     try:
         with httpx.Client(proxy=PROXY, timeout=20) as client:
-            r = client.post(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                json={"chat_id": CHANNEL_ID, "text": rendered.payload, "parse_mode": "HTML"}
-            )
+            if photo_file_id:
+                # Send photo with caption
+                r = client.post(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
+                    json={
+                        "chat_id": CHANNEL_ID,
+                        "photo": photo_file_id,
+                        "caption": rendered.payload,
+                        "parse_mode": "HTML",
+                    }
+                )
+            else:
+                # Send text only
+                r = client.post(
+                    f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                    json={
+                        "chat_id": CHANNEL_ID,
+                        "text": rendered.payload,
+                        "parse_mode": "HTML",
+                    }
+                )
         if r.status_code == 200 and r.json().get("ok"):
             msg_id = r.json()["result"]["message_id"]
-            print(f"  Published (msg #{msg_id}): {title[:50]}")
+            photo_str = " + photo" if photo_file_id else ""
+            print(f"  Published (msg #{msg_id}{photo_str}): {title[:50]}")
             return True
         else:
             print(f"  Error: {r.text[:80]}")
@@ -101,7 +126,8 @@ def main():
         try:
             r = source_fetch_service.fetch_source(src.pk)
             print(f"  {src.identifier}: new={r.get('created_count',0)}")
-        except: pass
+        except Exception:
+            pass
 
     # Step 2: Get latest stories
     print("\n[2/4] Getting stories...")
@@ -119,17 +145,23 @@ def main():
         # Get raw text
         headline = s.canonical_title or ""
         body_parts = []
+        photo_file_id = None
         for item in items:
             text = (item.raw_text or item.title or "")[:300]
             if text:
                 body_parts.append(text)
+            # Extract photo file_id from media
+            media = item.media or {}
+            if media.get("kind") == "photo" and media.get("file_id") and not photo_file_id:
+                photo_file_id = media["file_id"]
         raw_body = " ".join(body_parts)
 
         if not headline and not raw_body:
             continue
 
         # AI rewrite
-        print(f"  Rewriting: {headline[:40]}...", end=" ", flush=True)
+        photo_str = " [photo]" if photo_file_id else ""
+        print(f"  Rewriting: {headline[:40]}{photo_str}...", end=" ", flush=True)
         rewritten = ai_rewrite(headline, raw_body)
         new_title = rewritten.get("title", headline[:100])
         new_body = rewritten.get("body", raw_body[:300])
@@ -138,7 +170,7 @@ def main():
         # AI score
         if importance >= 0.6:
             print(f"[score={importance:.1f}] -> Publish")
-            if publish(new_title, new_body):
+            if publish(new_title, new_body, photo_file_id=photo_file_id):
                 published += 1
                 time.sleep(2)
         else:

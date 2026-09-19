@@ -125,6 +125,12 @@ def serialize_media(msg: Any) -> dict[str, Any]:
                 media_meta[field_name] = safe
         elif isinstance(value, str) and value:
             media_meta[field_name] = value[:256]
+
+    # Store file_id for photos/videos so we can send them later
+    if kind in ("photo", "video"):
+        file_id = getattr(blob, "file_id", None)
+        if file_id:
+            media_meta["file_id"] = str(file_id)[:512]
     return media_meta
 
 
