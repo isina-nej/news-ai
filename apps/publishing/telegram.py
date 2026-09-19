@@ -42,11 +42,16 @@ class PublisherPort:
 
 class TelegramBotPublisher(PublisherPort):
     def __init__(self, *, bot_token: str, timeout: float = 15.0) -> None:
+        from django.conf import settings
         from telegram import Bot
 
         if not bot_token:
             raise ValueError("TELEGRAM_BOT_TOKEN is not configured")
-        self._bot = Bot(token=bot_token)
+        proxy_url = str(getattr(settings, "HTTPS_PROXY", "") or "")
+        if proxy_url:
+            self._bot = Bot(token=bot_token, proxy=proxy_url)
+        else:
+            self._bot = Bot(token=bot_token)
         self._timeout = timeout
 
     def send(self, *, chat_id: str, payload: str, parse_mode: str) -> dict:

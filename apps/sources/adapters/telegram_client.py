@@ -71,8 +71,11 @@ class TelegramClientManager:
         return cfg
 
     def _build_client(self, cfg: TelegramAccountConfig) -> Any:
+        from django.conf import settings
+
         client_cls = _kurigram_client_class()
-        return client_cls(
+        proxy_url = str(getattr(settings, "HTTPS_PROXY", "") or "")
+        kwargs = dict(
             name=f"newsai-tg-{cfg.account_key}",
             api_id=cfg.api_id,
             api_hash=cfg.api_hash,
@@ -80,6 +83,9 @@ class TelegramClientManager:
             in_memory=True,
             no_updates=True,
         )
+        if proxy_url:
+            kwargs["proxy"] = {"scheme": "socks5", "hostname": "127.0.0.1", "port": 10808}
+        return client_cls(**kwargs)
 
     async def _ensure_started_in_loop(self) -> Any:
         # Validate credentials BEFORE touching the vendor SDK so missing
