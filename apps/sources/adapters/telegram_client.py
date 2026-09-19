@@ -84,7 +84,7 @@ class TelegramClientManager:
             no_updates=True,
         )
         if proxy_url:
-            kwargs["proxy"] = {"scheme": "socks5", "hostname": "127.0.0.1", "port": 10808}
+            kwargs["proxy"] = {"scheme": "socks5", "hostname": "127.0.0.1", "port": 9050}
         return client_cls(**kwargs)
 
     async def _ensure_started_in_loop(self) -> Any:
