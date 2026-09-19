@@ -117,6 +117,8 @@ class OpenAICompatibleProvider(AIProvider):
         self.max_retries = max(0, max_retries)
 
     def generate(self, *, task: str, prompt: str, model: str, timeout: float) -> AIResponse:
+        import json as _json
+
         import httpx
 
         payload = {
@@ -134,7 +136,13 @@ class OpenAICompatibleProvider(AIProvider):
                         f"{self.base_url}/chat/completions", json=payload, headers=headers
                     )
                 response.raise_for_status()
-                data = response.json()
+                raw = response.text.strip()
+                # Strip SSE suffix if present (some providers append "data: [DONE]")
+                for suffix in ("\ndata: [DONE]", "\n\n"):
+                    idx = raw.rfind(suffix)
+                    if idx != -1:
+                        raw = raw[:idx].strip()
+                data = _json.loads(raw)
                 text = data["choices"][0]["message"]["content"]
                 usage = data.get("usage", {})
                 return AIResponse(
