@@ -23,7 +23,14 @@ def render_post(*, headline: str, body: str, source_urls: list[str] | None = Non
     """Render and escape a versioned Telegram HTML payload."""
     clean_headline = (headline or "").strip()[:250]
     clean_body = (body or "").strip()[:3500]
-    payload = f"<b>{html.escape(clean_headline)}</b>\n\n{html.escape(clean_body)}"
+
+    # Format with nice structure
+    payload = f"━━━━━━━━━━━━━━━━\n"
+    payload += f"<b>{html.escape(clean_headline)}</b>\n"
+    payload += f"━━━━━━━━━━━━━━━━\n\n"
+    payload += f"{html.escape(clean_body)}\n\n"
+    payload += f"━━━━━━━━━━━━━━━━"
+
     if len(payload) > MAX_TEXT:
         payload = payload[: MAX_TEXT - 1] + "…"
     return RenderedPost(
