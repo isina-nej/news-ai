@@ -215,18 +215,20 @@ def extract_syndication_timeline(
     for entry in entries:
         if not isinstance(entry, dict):
             continue
-        content = entry.get("content") or entry.get("tweet") or entry
-        tweet_id = str(content.get("id_str") or content.get("id") or "")
+        content = entry.get("content") or entry
+        # Syndication embeds nest tweet data under content["tweet"]
+        tweet_data = content.get("tweet") or content
+        tweet_id = str(tweet_data.get("id_str") or tweet_data.get("id") or "")
         if not tweet_id:
             continue
-        text = str(content.get("text") or content.get("full_text") or "")
-        user = content.get("user") or {}
+        text = str(tweet_data.get("text") or tweet_data.get("full_text") or "")
+        user = tweet_data.get("user") or {}
         username = str(user.get("screen_name") or default_author)
-        created_at = content.get("created_at")
+        created_at = tweet_data.get("created_at")
         metrics = {
-            "like_count": content.get("favorite_count"),
-            "retweet_count": content.get("retweet_count"),
-            "reply_count": content.get("reply_count"),
+            "like_count": tweet_data.get("favorite_count"),
+            "retweet_count": tweet_data.get("retweet_count"),
+            "reply_count": tweet_data.get("reply_count"),
         }
         tweets.append(
             {
@@ -235,8 +237,8 @@ def extract_syndication_timeline(
                 "author": {"username": username},
                 "created_at": created_at,
                 "public_metrics": metrics,
-                "is_retweet": bool(content.get("retweeted_status")),
-                "lang": content.get("lang") or "und",
+                "is_retweet": bool(tweet_data.get("retweeted_status")),
+                "lang": tweet_data.get("lang") or "und",
             }
         )
     return {"tweets": tweets, "next_cursor": None}
@@ -312,24 +314,27 @@ class EnvSessionClient:
         if not clean_user:
             raise ValueError("Twitter username is required")
 
-        headers = {
-            "User-Agent": self._credentials.get("user_agent", DEFAULT_USER_AGENT),
-            "Authorization": self._credentials.get("bearer_token", TWITTER_WEB_BEARER),
-            "Accept": "application/json",
-            "Accept-Language": "en-US,en;q=0.9",
-            "x-twitter-active-user": "yes",
-            "x-twitter-client-language": "en",
-        }
-        if self._ct0:
-            headers["x-csrf-token"] = self._ct0
-
-        cookies: dict[str, str] = {}
-        if self._auth_token:
-            cookies["auth_token"] = self._auth_token
-        if self._ct0:
-            cookies["ct0"] = self._ct0
-
         custom_endpoint = self._credentials.get("endpoint") or self._credentials.get("api_url")
+
+        # Syndication mode needs minimal headers; GraphQL needs full auth
+        use_syndication = not custom_endpoint
+        if use_syndication:
+            headers = {"User-Agent": self._credentials.get("user_agent", DEFAULT_USER_AGENT)}
+            cookies: dict[str, str] = {}
+        else:
+            headers = {
+                "User-Agent": self._credentials.get("user_agent", DEFAULT_USER_AGENT),
+                "Authorization": self._credentials.get("bearer_token", TWITTER_WEB_BEARER),
+                "Accept": "application/json",
+                "x-twitter-active-user": "yes",
+            }
+            if self._ct0:
+                headers["x-csrf-token"] = self._ct0
+            cookies = {}
+            if self._auth_token:
+                cookies["auth_token"] = self._auth_token
+            if self._ct0:
+                cookies["ct0"] = self._ct0
         if custom_endpoint:
             url = custom_endpoint.format(username=clean_user, cursor=cursor or "", limit=limit)
             params: dict[str, str] = {}
@@ -340,44 +345,9 @@ class EnvSessionClient:
             if "{limit}" not in custom_endpoint:
                 params["limit"] = str(limit)
         else:
-            url = f"{self._base_url}/i/api/graphql/UserTweets"
-            params = {
-                "variables": json.dumps(
-                    {
-                        "screen_name": clean_user,
-                        "count": limit,
-                        "cursor": cursor,
-                        "includePromotedContent": False,
-                        "withQuickPromoteEligibilityTweetFields": True,
-                        "withVoice": True,
-                        "withV2Timeline": True,
-                    }
-                ),
-                "features": json.dumps(
-                    {
-                        "rweb_lists_timeline_redesign_enabled": True,
-                        "responsive_web_graphql_exclude_directive_enabled": True,
-                        "verified_phone_label_enabled": False,
-                        "creator_subscriptions_tweet_preview_api_enabled": True,
-                        "responsive_web_graphql_timeline_navigation_enabled": True,
-                        "responsive_web_graphql_skip_user_profile_image_extensions_enabled": False,
-                        "tweetypie_unmention_optimization_enabled": True,
-                        "responsive_web_edit_tweet_api_enabled": True,
-                        "graphql_is_translatable_rweb_tweet_is_translatable_enabled": True,
-                        "view_counts_everywhere_api_enabled": True,
-                        "longform_notetweets_consumption_enabled": True,
-                        "tweet_awards_web_tipping_enabled": False,
-                        "freedom_of_speech_not_reach_fetch_enabled": True,
-                        "standardized_nudges_misinfo": True,
-                        "tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled": (
-                            True
-                        ),
-                        "longform_notetweets_rich_text_read_enabled": True,
-                        "longform_notetweets_inline_media_enabled": True,
-                        "responsive_web_enhance_cards_enabled": False,
-                    }
-                ),
-            }
+            # Primary: syndication embed (no auth, no GraphQL hash needed)
+            url = f"https://syndication.twitter.com/srv/timeline-profile/screen-name/{clean_user}"
+            params = {}
 
         client_kwargs: dict[str, Any] = {
             "timeout": self._timeout,
