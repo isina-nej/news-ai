@@ -3,6 +3,7 @@
 cd "$(dirname "$0")"
 source .venv/bin/activate
 set -a && source .env && set +a
+export PYTHONPATH=.
 
 echo "Starting NewsAI services..."
 
@@ -26,6 +27,10 @@ echo "Beat: $!"
 # Start Django server
 nohup python manage.py runserver 0.0.0.0:8000 > /tmp/newsai-server.log 2>&1 &
 echo "Server: $!"
+
+# Auto-run AI publish after 30 seconds
+(sleep 30 && python scripts/publish_ai.py >> /tmp/newsai-publish.log 2>&1) &
+echo "AI Publisher scheduled (30s delay)"
 
 sleep 3
 echo ""

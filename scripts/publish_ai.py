@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 """Fetch, AI-rewrite, AI-score, and publish news to Telegram."""
-import os, sys, time
+import os, sys, time, subprocess
+
+# Ensure we're in the project root
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+os.chdir(PROJECT_ROOT)
+sys.path.insert(0, PROJECT_ROOT)
+
+# Check if we're in the venv
+if "VIRTUAL_ENV" not in os.environ:
+    venv_python = os.path.join(PROJECT_ROOT, ".venv", "bin", "python")
+    if os.path.exists(venv_python):
+        os.execv(venv_python, [venv_python] + sys.argv)
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 
 import django
