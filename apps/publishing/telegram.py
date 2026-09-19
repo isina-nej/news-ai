@@ -19,19 +19,15 @@ class RenderedPost:
     parse_mode: str = "HTML"
 
 
-def render_post(*, headline: str, body: str, source_urls: list[str]) -> RenderedPost:
+def render_post(*, headline: str, body: str, source_urls: list[str] | None = None) -> RenderedPost:
     """Render and escape a versioned Telegram HTML payload."""
     clean_headline = (headline or "").strip()[:250]
     clean_body = (body or "").strip()[:3500]
-    urls = [u for u in (source_urls or []) if u.startswith("http")][:5]
-    link_lines = "".join(f'\n<a href="{html.escape(u, quote=True)}">Source</a>' for u in urls)
     payload = f"<b>{html.escape(clean_headline)}</b>\n\n{html.escape(clean_body)}"
-    if link_lines:
-        payload = f"{payload}\n{link_lines}"
     if len(payload) > MAX_TEXT:
         payload = payload[: MAX_TEXT - 1] + "…"
     return RenderedPost(
-        headline=clean_headline, body=clean_body, footer=link_lines, payload=payload
+        headline=clean_headline, body=clean_body, footer="", payload=payload
     )
 
 
