@@ -19,18 +19,64 @@ class Command(BaseCommand):
         parser.add_argument("--days", type=int, default=7, help="Lookback window in days")
         parser.add_argument("--limit", type=int, default=50, help="Max stories to replay")
         parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+        parser.add_argument(
+            "--ranking-version",
+            type=str,
+            default="ranking-v1",
+            help="Algorithm version tag to replay",
+        )
+        parser.add_argument(
+            "--momentum-version",
+            type=str,
+            default="momentum-v1",
+            help="Momentum version tag to replay",
+        )
+        parser.add_argument(
+            "--from",
+            dest="from_date",
+            type=str,
+            default=None,
+            help="ISO start datetime filter",
+        )
+        parser.add_argument(
+            "--to",
+            dest="to_date",
+            type=str,
+            default=None,
+            help="ISO end datetime filter",
+        )
 
     def handle(self, *args, **options):
         days = options["days"]
         limit = options["limit"]
         output_json = options["json"]
 
-        cutoff = timezone.now() - timedelta(days=days)
-        stories = list(
-            Story.objects.filter(latest_source_update_at__gte=cutoff)
-            .exclude(status="merged")
-            .order_by("-latest_source_update_at")[:limit]
-        )
+        from_date = options.get("from_date")
+        to_date = options.get("to_date")
+        ranking_ver = options.get("ranking_version", "ranking-v1")
+        momentum_ver = options.get("momentum_version", "momentum-v1")
+
+        qs = Story.objects.exclude(status="merged")
+        if from_date:
+            try:
+                qs = qs.filter(
+                    latest_source_update_at__gte=timezone.datetime.fromisoformat(from_date)
+                )
+            except Exception:
+                pass
+        else:
+            cutoff = timezone.now() - timedelta(days=days)
+            qs = qs.filter(latest_source_update_at__gte=cutoff)
+
+        if to_date:
+            try:
+                qs = qs.filter(
+                    latest_source_update_at__lte=timezone.datetime.fromisoformat(to_date)
+                )
+            except Exception:
+                pass
+
+        stories = list(qs.order_by("-latest_source_update_at")[:limit])
 
         total = len(stories)
         actions: dict[str, int] = {"publish": 0, "skip": 0, "hold": 0}
@@ -51,9 +97,16 @@ class Command(BaseCommand):
                     "story_id": story.pk,
                     "title": story.canonical_title[:60],
                     "action": act,
+                    "editorial_action": res.get("editorial_action", act),
+                    "newsworthiness_score": res.get("newsworthiness_score", 0.0),
+                    "publish_priority_score": res.get(
+                        "publish_priority_score", res["adjusted_score"]
+                    ),
                     "adjusted_score": res["adjusted_score"],
                     "final_score": res["scored"]["final_score"],
                     "reason": res["reason"],
+                    "ranking_version": ranking_ver,
+                    "momentum_version": momentum_ver,
                 }
             )
 

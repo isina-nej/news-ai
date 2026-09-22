@@ -15,6 +15,7 @@ from apps.platform_api.schemas import (
     FetchRunOut,
     FlagOut,
     PublicationOut,
+    SelectionRunOut,
     SourceItemOut,
     SourceOut,
     StoryDetailOut,
@@ -22,7 +23,7 @@ from apps.platform_api.schemas import (
     TopicOut,
 )
 from apps.publishing.models import Publication
-from apps.ranking.models import ScoreRecord
+from apps.ranking.models import PublicationSelectionRun, ScoreRecord
 from apps.sources.models import FetchRun, Source
 from apps.stories.models import ClusteringDecision, Story, StoryMembership
 
@@ -146,6 +147,47 @@ def story_detail(request, story_id: int):
         {"id": p.pk, "status": p.status, "channel": p.channel}
         for p in Publication.objects.filter(story=story)[:10]
     ]
+
+    obs = getattr(story, "observation_state", None)
+    obs_data = None
+    if obs:
+        obs_data = {
+            "lifecycle_state": obs.lifecycle_state,
+            "trend_state": obs.trend_state,
+            "latest_momentum": float(obs.latest_momentum),
+            "latest_confidence": float(obs.latest_confidence),
+            "active": obs.active,
+            "sample_count": obs.sample_count,
+            "observation_interval_seconds": obs.observation_interval_seconds,
+            "next_observation_at": (
+                obs.next_observation_at.isoformat() if obs.next_observation_at else None
+            ),
+        }
+
+    latest_mom = story.momentum_snapshots.order_by("-captured_at").first()
+    mom_data = None
+    if latest_mom:
+        mom_data = {
+            "view_velocity": latest_mom.view_velocity,
+            "acceleration": latest_mom.acceleration,
+            "momentum_score": float(latest_mom.momentum_score),
+            "confidence": float(latest_mom.confidence),
+            "propagation_breadth": latest_mom.propagation_breadth,
+            "source_arrival_15m": latest_mom.source_arrival_15m,
+            "captured_at": latest_mom.captured_at.isoformat(),
+        }
+
+    latest_intel = story.intelligence_snapshots.order_by("-created_at").first()
+    intel_data = None
+    if latest_intel:
+        intel_data = {
+            "canonical_event": latest_intel.canonical_event,
+            "confirmed_facts": latest_intel.confirmed_facts[:5],
+            "importance": float(latest_intel.importance),
+            "credibility": float(latest_intel.credibility),
+            "reasoning_summary": latest_intel.reasoning_summary,
+        }
+
     return {
         "id": story.pk,
         "canonical_title": story.canonical_title,
@@ -157,7 +199,27 @@ def story_detail(request, story_id: int):
         "members": members,
         "scores": scores,
         "publications": publications,
+        "observation": obs_data,
+        "latest_momentum": mom_data,
+        "latest_intelligence": intel_data,
     }
+
+
+@api.get("/selection-runs", response=list[SelectionRunOut])
+@paginate(PageNumberPagination, page_size=20)
+def list_selection_runs(request):
+    runs = PublicationSelectionRun.objects.all().order_by("-run_at")[:100]
+    return [
+        SelectionRunOut(
+            id=r.pk,
+            run_at=r.run_at.isoformat(),
+            algorithm_version=r.algorithm_version,
+            policy_version=r.policy_version,
+            selected_count=r.selected_count,
+            candidates_count=len(r.candidates),
+        )
+        for r in runs
+    ]
 
 
 @api.get("/story-members", response=list[dict])

@@ -7,6 +7,7 @@ from apps.ai.models import (
     ClusteringJudgeDecision,
     MaterialUpdateDecision,
     StoryConflict,
+    StoryIntelligenceSnapshot,
     StoryNewsValue,
     TopicClassification,
 )
@@ -72,3 +73,18 @@ class MaterialUpdateDecisionAdmin(admin.ModelAdmin):
     list_display = ("created_at", "label", "story", "source_item")
     list_filter = ("label",)
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(StoryIntelligenceSnapshot)
+class StoryIntelligenceSnapshotAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "story",
+        "importance",
+        "credibility",
+        "urgency",
+        "canonical_event",
+        "created_at",
+    )
+    search_fields = ("canonical_event", "what_happened")
+    readonly_fields = ("created_at",)

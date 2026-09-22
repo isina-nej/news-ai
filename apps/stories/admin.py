@@ -6,6 +6,8 @@ from .models import (
     ItemMinHash,
     Story,
     StoryMembership,
+    StoryMomentumSnapshot,
+    StoryObservationState,
 )
 
 
@@ -141,3 +143,35 @@ class ItemMinHashAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+@admin.register(StoryObservationState)
+class StoryObservationStateAdmin(admin.ModelAdmin):
+    list_display = (
+        "story_id",
+        "lifecycle_state",
+        "trend_state",
+        "latest_momentum",
+        "latest_confidence",
+        "active",
+        "observation_interval_seconds",
+        "next_observation_at",
+    )
+    list_filter = ("lifecycle_state", "trend_state", "active")
+    readonly_fields = ("created_at", "updated_at", "last_observed_at")
+
+
+@admin.register(StoryMomentumSnapshot)
+class StoryMomentumSnapshotAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "story_id",
+        "captured_at",
+        "lifecycle_state",
+        "trend_state",
+        "momentum_score",
+        "view_velocity",
+        "acceleration",
+    )
+    list_filter = ("lifecycle_state", "trend_state")
+    readonly_fields = ("captured_at",)

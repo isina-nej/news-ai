@@ -265,3 +265,61 @@ class EngagementSnapshot(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"snap {self.source_item_id}@{self.captured_at:%H:%M}"
+
+
+class MediaValidationStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    VALID = "valid", "Valid"
+    INVALID = "invalid", "Invalid"
+    SKIPPED = "skipped", "Skipped"
+
+
+class MediaAsset(TimeStampedModel):
+    """Media candidate harvested from source ingestion. Preserves provenance."""
+
+    source_item = models.ForeignKey(
+        SourceItem, on_delete=models.CASCADE, related_name="media_assets"
+    )
+    original_url = models.URLField(max_length=2048, blank=True, default="")
+    platform_media_id = models.CharField(max_length=256, blank=True, default="")
+    media_type = models.CharField(max_length=32, default="image")
+    mime_type = models.CharField(max_length=64, blank=True, default="")
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True)
+    aspect_ratio = models.FloatField(null=True, blank=True)
+    caption = models.TextField(blank=True, default="")
+    position = models.PositiveSmallIntegerField(default=0)
+    content_hash = models.CharField(
+        max_length=64, blank=True, default="", help_text="SHA-256 of media payload or identifier"
+    )
+    provenance = models.JSONField(
+        default=dict, blank=True, help_text="Adapter, origin platform, source details"
+    )
+    validation_status = models.CharField(
+        max_length=24,
+        choices=MediaValidationStatus.choices,
+        default=MediaValidationStatus.PENDING,
+        db_index=True,
+    )
+    failure_reason = models.CharField(max_length=128, blank=True, default="")
+    telegram_file_id = models.CharField(
+        max_length=256,
+        blank=True,
+        default="",
+        help_text="Cached Telegram file_id after successful upload",
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["source_item", "validation_status"]),
+            models.Index(fields=["validation_status", "-created_at"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.width and self.height and self.height > 0 and self.aspect_ratio is None:
+            self.aspect_ratio = round(self.width / self.height, 4)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"MediaAsset #{self.pk} item={self.source_item_id} [{self.validation_status}]"

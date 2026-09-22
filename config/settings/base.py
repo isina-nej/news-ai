@@ -78,6 +78,12 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_ROUTES = {
     "apps.sources.tasks.fetch_telegram_source_task": {"queue": "telegram"},
     "apps.sources.tasks.refresh_telegram_engagement_task": {"queue": "telegram"},
+    "apps.stories.tasks.cluster_source_item_task": {"queue": "intelligence"},
+    "apps.stories.tasks.embed_item_task": {"queue": "intelligence"},
+    "apps.stories.tasks.prepare_clustering_metadata_task": {"queue": "intelligence"},
+    "apps.stories.tasks.immediate_rescore_task": {"queue": "celery"},
+    "apps.stories.tasks.recompute_story_momentum_task": {"queue": "celery"},
+    "apps.stories.tasks.observe_due_stories_task": {"queue": "celery"},
 }
 CELERY_TASK_DEFAULT_QUEUE = "celery"
 PLATFORM_API_TOKEN = env("PLATFORM_API_TOKEN", default="")
@@ -100,6 +106,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.ops.tasks.dispatch_publication_queue_task",
         "schedule": 600.0,
     },
+    "observe-due-stories-every-minute": {
+        "task": "apps.stories.tasks.observe_due_stories_task",
+        "schedule": 60.0,
+    },
 }
 
 LANGUAGE_CODE = "en-us"
@@ -119,6 +129,11 @@ FEATURE_FLAGS = {
     "ENABLE_QDRANT": env.bool("ENABLE_QDRANT", default=True),
     "ENABLE_AUDIENCE_LEARNING": env.bool("ENABLE_AUDIENCE_LEARNING", default=True),
     "ENABLE_EXPLORATION": env.bool("ENABLE_EXPLORATION", default=True),
+    "ENABLE_MOMENTUM": env.bool("ENABLE_MOMENTUM", default=True),
+    "ENABLE_EDITORIAL_ENGINE": env.bool("ENABLE_EDITORIAL_ENGINE", default=True),
+    "ENABLE_MEDIA": env.bool("ENABLE_MEDIA", default=True),
+    "ENABLE_FAST_PATH": env.bool("ENABLE_FAST_PATH", default=True),
+    "ENABLE_TELEGRAM_PHOTO": env.bool("ENABLE_TELEGRAM_PHOTO", default=True),
 }
 TWITTER_SESSION = env("TWITTER_SESSION", default="")
 RSSHUB_BASE_URL = env("RSSHUB_BASE_URL", default="http://rsshub:1200")

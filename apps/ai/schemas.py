@@ -84,3 +84,61 @@ class PostDraftResult(BaseModel):
     @classmethod
     def check_sources(cls, value: list[str]) -> list[str]:
         return [str(url)[:2048] for url in (value or [])][:12]
+
+
+class StoryIntelligenceResult(BaseModel):
+    canonical_event: str = Field(default="", max_length=500)
+    what_happened: str = Field(default="", max_length=2000)
+    who: list[str] = Field(default_factory=list)
+    where: list[str] = Field(default_factory=list)
+    when: str = Field(default="", max_length=255)
+    why_it_matters: str = Field(default="", max_length=1500)
+    confirmed_facts: list[str] = Field(default_factory=list)
+    uncertain_claims: list[str] = Field(default_factory=list)
+    conflicting_claims: list[str] = Field(default_factory=list)
+    new_information: list[str] = Field(default_factory=list)
+    missing_information: list[str] = Field(default_factory=list)
+    importance: float = Field(ge=0.0, le=1.0, default=0.5)
+    impact: float = Field(ge=0.0, le=1.0, default=0.5)
+    utility: float = Field(ge=0.0, le=1.0, default=0.5)
+    novelty: float = Field(ge=0.0, le=1.0, default=0.5)
+    urgency: float = Field(ge=0.0, le=1.0, default=0.5)
+    credibility: float = Field(ge=0.0, le=1.0, default=0.5)
+    editorial_risk: float = Field(ge=0.0, le=1.0, default=0.0)
+    recommended_depth: str = Field(default="standard", max_length=32)
+    recommended_tone: str = Field(default="neutral", max_length=32)
+    reasoning_summary: str = Field(default="", max_length=500)
+
+
+class EditorialDecisionResult(BaseModel):
+    recommended_action: str = Field(max_length=64)
+    confidence: float = Field(ge=0.0, le=1.0, default=0.5)
+    primary_reason: str = Field(default="", max_length=500)
+    risks: list[str] = Field(default_factory=list)
+    missing_confirmation: list[str] = Field(default_factory=list)
+    recommended_wait_minutes: int | None = None
+    recommended_format: str = Field(default="STANDARD", max_length=32)
+
+
+class StructuredDraftResult(BaseModel):
+    headline_direct: str = Field(max_length=250)
+    headline_breaking: str = Field(max_length=250)
+    headline_contextual: str = Field(max_length=250)
+    subheadline: str | None = Field(default=None, max_length=250)
+    lead: str = Field(max_length=2000)
+    body_points: list[str] = Field(default_factory=list)
+    why_it_matters: str | None = Field(default=None, max_length=1500)
+    context: str | None = Field(default=None, max_length=1500)
+    update_line: str | None = Field(default=None, max_length=500)
+    tone: str = Field(default="neutral", max_length=32)
+    urgency_label: str | None = Field(default=None, max_length=32)
+
+
+class DraftCriticResult(BaseModel):
+    is_approved: bool = True
+    severity: Literal["pass", "minor", "major", "reject"] = "pass"
+    issue_codes: list[str] = Field(default_factory=list)
+    unsupported_claims: list[str] = Field(default_factory=list)
+    headline_exaggeration: bool = False
+    persian_quality_score: float = Field(ge=0.0, le=1.0, default=1.0)
+    repair_instructions: str = Field(default="", max_length=1000)

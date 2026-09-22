@@ -21,3 +21,33 @@ class ContentType(models.TextChoices):
     AUDIO = "audio", "Audio"
     POLL = "poll", "Poll"
     OTHER = "other", "Other"
+
+
+class LifecycleState(models.TextChoices):
+    DISCOVERED = "discovered", "Discovered"
+    WATCHING = "watching", "Watching"
+    RISING = "rising", "Rising"
+    BREAKING = "breaking", "Breaking"
+    PEAKING = "peaking", "Peaking"
+    COOLING = "cooling", "Cooling"
+    STALE = "stale", "Stale"
+    ARCHIVED = "archived", "Archived"
+
+
+class TrendState(models.TextChoices):
+    NORMAL = "normal", "Normal"
+    EARLY_SIGNAL = "early_signal", "Early Signal"
+    RISING = "rising", "Rising"
+    SURGING = "surging", "Surging"
+    BREAKING = "breaking", "Breaking"
+    SATURATED = "saturated", "Saturated"
+    COOLING = "cooling", "Cooling"
+
+
+class EditorialAction(models.TextChoices):
+    PUBLISH_NOW = "publish_now", "Publish Now"
+    WATCH = "watch", "Watch"
+    SCHEDULE = "schedule", "Schedule"
+    SKIP = "skip", "Skip"
+    UPDATE_EXISTING_STORY = "update_existing_story", "Update Existing Story"
+    REJECT = "reject", "Reject"

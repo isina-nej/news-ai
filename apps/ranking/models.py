@@ -14,6 +14,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinLengthValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 from apps.core.choices import ContentType, Platform
 from apps.core.models import TimeStampedModel
@@ -102,6 +103,12 @@ class ScoreRecord(TimeStampedModel):
     audience_fit = models.DecimalField(max_digits=5, decimal_places=4, validators=UNIT_INTERVAL)
     momentum = models.DecimalField(max_digits=5, decimal_places=4, validators=UNIT_INTERVAL)
     final_score = models.DecimalField(max_digits=5, decimal_places=4, validators=UNIT_INTERVAL)
+    newsworthiness_score = models.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.0000"), validators=UNIT_INTERVAL
+    )
+    publish_priority_score = models.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.0000"), validators=UNIT_INTERVAL
+    )
     breakdown = models.JSONField(
         default=dict,
         validators=[validate_breakdown],
@@ -126,6 +133,14 @@ class ScoreRecord(TimeStampedModel):
                 condition=Q(final_score__gte=0, final_score__lte=1),
                 name="chk_scorerecord_final_0_1",
             ),
+            models.CheckConstraint(
+                condition=Q(newsworthiness_score__gte=0, newsworthiness_score__lte=1),
+                name="chk_scorerecord_newsworthiness_0_1",
+            ),
+            models.CheckConstraint(
+                condition=Q(publish_priority_score__gte=0, publish_priority_score__lte=1),
+                name="chk_scorerecord_publish_priority_0_1",
+            ),
         ]
         indexes = [
             models.Index(fields=["story", "-created_at"]),
@@ -134,6 +149,11 @@ class ScoreRecord(TimeStampedModel):
         ]
 
     def save(self, *args, **kwargs):
+        # Compatibility sync: maintain final_score as mirror of publish_priority_score
+        if self.publish_priority_score and not self.final_score:
+            self.final_score = self.publish_priority_score
+        elif self.final_score and not self.publish_priority_score:
+            self.publish_priority_score = self.final_score
         self.full_clean(exclude=None, validate_unique=False)
         super().save(*args, **kwargs)
 
@@ -245,7 +265,9 @@ class DecisionLog(models.Model):
         related_name="decisions",
     )
     algorithm_version = models.CharField(max_length=32, validators=[MinLengthValidator(1)])
-    decision_type = models.CharField(max_length=8, choices=DecisionType.choices)
+    policy_version = models.CharField(max_length=32, blank=True, default="editorial-v1")
+    decision_batch_id = models.CharField(max_length=64, blank=True, default="")
+    decision_type = models.CharField(max_length=32, choices=DecisionType.choices)
     feature_snapshot = models.JSONField(default=dict)
     score_breakdown = models.JSONField(default=dict, blank=True)
     predicted_reward = models.DecimalField(
@@ -259,6 +281,9 @@ class DecisionLog(models.Model):
     )
     actual_reward = models.DecimalField(
         max_digits=9, decimal_places=6, null=True, blank=True, default=None
+    )
+    reward_breakdown = models.JSONField(
+        default=dict, blank=True, help_text="Decomposed reward: views, forwards, reactions, replies"
     )
     reward_calculated_at = models.DateTimeField(null=True, blank=True, default=None)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -280,9 +305,32 @@ class DecisionLog(models.Model):
             models.Index(fields=["story", "decision_type", "-created_at"]),
             models.Index(fields=["algorithm_version", "decision_type", "-created_at"]),
             models.Index(fields=["publication", "decision_type"]),
+            models.Index(fields=["decision_batch_id"]),
         ]
 
     def __str__(self) -> str:
         return (
             f"{self.decision_type}:{self.selected_action} {self.story_id} {self.algorithm_version}"
         )
+
+
+class PublicationSelectionRun(models.Model):
+    """Counterfactual log of all candidate stories evaluated during a selection cycle."""
+
+    run_at = models.DateTimeField(default=timezone.now, db_index=True)
+    algorithm_version = models.CharField(max_length=32, default="ranking-v1")
+    policy_version = models.CharField(max_length=32, default="editorial-v1")
+    candidates = models.JSONField(
+        default=list,
+        help_text="List of evaluated candidate stories with features, scores, rank, and outcome",
+    )
+    selected_count = models.PositiveSmallIntegerField(default=0)
+    summary = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["-run_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"SelectionRun @{self.run_at:%Y-%m-%d %H:%M} selected={self.selected_count}"

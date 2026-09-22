@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
@@ -287,6 +289,11 @@ class MaterialUpdateDecision(TimeStampedModel):
     prompt_version = models.CharField(max_length=32, blank=True, default="")
     algorithm_version = models.CharField(max_length=32, default=AI_VERSION)
     reason_codes = models.JSONField(default=list, blank=True)
+    information_unit_diff = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Fact-level diff: new, changed, repeated, and contradicted claims.",
+    )
 
     class Meta:
         indexes = [
@@ -296,3 +303,82 @@ class MaterialUpdateDecision(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.label} story={self.story_id} item={self.source_item_id}"
+
+
+class StoryIntelligenceSnapshot(models.Model):
+    """Full semantic analysis and factual evidence snapshot for a story."""
+
+    story = models.ForeignKey(
+        "stories.Story", on_delete=models.CASCADE, related_name="intelligence_snapshots"
+    )
+    evidence_hash = models.CharField(max_length=64, db_index=True)
+    canonical_event = models.TextField(blank=True, default="")
+    what_happened = models.TextField(blank=True, default="")
+    who = models.JSONField(default=list, blank=True)
+    where = models.JSONField(default=list, blank=True)
+    when = models.CharField(max_length=255, blank=True, default="")
+    why_it_matters = models.TextField(blank=True, default="")
+    confirmed_facts = models.JSONField(default=list, blank=True)
+    uncertain_claims = models.JSONField(default=list, blank=True)
+    conflicting_claims = models.JSONField(default=list, blank=True)
+    new_information = models.JSONField(default=list, blank=True)
+    missing_information = models.JSONField(default=list, blank=True)
+    importance = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=Decimal("0.5000"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    impact = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=Decimal("0.5000"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    utility = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=Decimal("0.5000"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    novelty = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=Decimal("0.5000"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    urgency = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=Decimal("0.5000"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    credibility = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=Decimal("0.5000"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    editorial_risk = models.DecimalField(
+        max_digits=5,
+        decimal_places=4,
+        default=Decimal("0.0000"),
+        validators=[MinValueValidator(0), MaxValueValidator(1)],
+    )
+    recommended_depth = models.CharField(max_length=32, blank=True, default="standard")
+    recommended_tone = models.CharField(max_length=32, blank=True, default="neutral")
+    reasoning_summary = models.CharField(max_length=500, blank=True, default="")
+    provider = models.CharField(max_length=32, default="fake")
+    model = models.CharField(max_length=128, blank=True, default="")
+    prompt_version = models.CharField(max_length=32, blank=True, default="v2")
+    task_version = models.CharField(max_length=32, default="intel-v2")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["story", "-created_at"]),
+            models.Index(fields=["evidence_hash"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"intel story={self.story_id} [{self.canonical_event[:40]}]"

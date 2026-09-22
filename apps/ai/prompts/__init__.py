@@ -47,6 +47,42 @@ _register(
     )
 )
 _register(PromptSpec("post_draft", "v1", "post_draft", "PostDraftResult", "post_draft_v1.txt"))
+_register(
+    PromptSpec(
+        "story_intelligence",
+        "v2",
+        "story_intelligence",
+        "StoryIntelligenceResult",
+        "story_intelligence_v2.txt",
+    )
+)
+_register(
+    PromptSpec(
+        "editorial_decision",
+        "v1",
+        "editorial_decision",
+        "EditorialDecisionResult",
+        "editorial_decision_v1.txt",
+    )
+)
+_register(
+    PromptSpec(
+        "draft_generation",
+        "v2",
+        "draft_generation",
+        "StructuredDraftResult",
+        "draft_generation_v2.txt",
+    )
+)
+_register(
+    PromptSpec(
+        "draft_critic",
+        "v1",
+        "draft_critic",
+        "DraftCriticResult",
+        "draft_critic_v1.txt",
+    )
+)
 
 
 def get_prompt(name: str, version: str) -> PromptSpec:

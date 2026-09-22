@@ -84,6 +84,9 @@ FINGERPRINT_FIELDS = (
     "tone",
     "emoji_level",
     "technical_depth",
+    "fingerprint_version",
+    "publication_version",
+    "update_type",
 )
 
 
@@ -92,8 +95,9 @@ def compute_publication_payload_hash(pub: Publication) -> str | None:
 
     Includes every field that changes what the subscriber sees:
     headline, content, template_version, headline_style, tone,
-    emoji_level, technical_depth. Returns None for empty drafts
-    (both headline and content blank) so NULL-unique never collides.
+    emoji_level, technical_depth, fingerprint_version, selected_media,
+    publication_version, update_type.
+    Returns None for empty drafts (both headline and content blank).
     """
     headline = (pub.headline or "").strip()
     content = (pub.content or "").strip()
@@ -107,6 +111,10 @@ def compute_publication_payload_hash(pub: Publication) -> str | None:
         "tone": (pub.tone or "").strip(),
         "emoji_level": pub.emoji_level,
         "technical_depth": pub.technical_depth,
+        "fingerprint_version": (getattr(pub, "fingerprint_version", "") or "").strip(),
+        "selected_media_id": getattr(pub, "selected_media_id", None),
+        "publication_version": getattr(pub, "publication_version", 1),
+        "update_type": (getattr(pub, "update_type", "") or "initial").strip(),
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(canonical.encode()).hexdigest()
@@ -126,6 +134,13 @@ class Publication(TimeStampedModel):
     update_type = models.CharField(
         max_length=16, choices=UpdateType.choices, default=UpdateType.INITIAL
     )
+    selected_media = models.ForeignKey(
+        "news.MediaAsset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="publications",
+    )
     headline = models.CharField(max_length=1024, blank=True, default="")
     content = models.TextField(blank=True, default="")
     content_hash = models.CharField(
@@ -144,7 +159,28 @@ class Publication(TimeStampedModel):
     technical_depth = models.PositiveSmallIntegerField(null=True, blank=True, default=None)
     scheduled_at = models.DateTimeField(null=True, blank=True, default=None)
     published_at = models.DateTimeField(null=True, blank=True, default=None)
+    telegram_chat_id = models.CharField(max_length=128, blank=True, default="")
+    telegram_message_id = models.CharField(max_length=128, blank=True, default="")
     external_message_id = models.CharField(max_length=128, blank=True, default="")
+    parent_publication = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="follow_ups",
+    )
+    update_sequence = models.PositiveSmallIntegerField(default=0)
+    editorial_metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Headline candidates, review scores, and editorial rationale",
+    )
+    delivery_metadata = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Media dispatch status, fallback rationale, and provider responses",
+    )
+    fingerprint_version = models.CharField(max_length=32, blank=True, default="fp-v1")
     idempotency_key = models.CharField(
         max_length=64, unique=True, validators=[MinLengthValidator(1)]
     )

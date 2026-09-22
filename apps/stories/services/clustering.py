@@ -643,6 +643,12 @@ class StoryClusteringService:
                 ItemEmbeddingModel.objects.filter(source_item=item).update(status="failed")
             except Exception as mark_exc:  # noqa: S110 — status flag is best-effort
                 logger.debug("embedding status mark failed: %s", mark_exc)
+        try:
+            from apps.stories.services.coordinator import StoryReanalysisCoordinator
+
+            StoryReanalysisCoordinator.schedule_reanalysis(locked_story.pk)
+        except Exception as coord_exc:
+            logger.debug("reanalysis trigger skipped: %s", coord_exc)
         return {
             "status": "matched",
             "story_id": locked_story.pk,
@@ -737,6 +743,12 @@ class StoryClusteringService:
                 ItemEmbeddingModel.objects.filter(source_item=item).update(status="indexed")
         except Exception as exc:
             logger.warning("qdrant upsert failed for item %s: %s", item.pk, exc)
+        try:
+            from apps.stories.services.coordinator import StoryReanalysisCoordinator
+
+            StoryReanalysisCoordinator.schedule_reanalysis(story.pk)
+        except Exception as coord_exc:
+            logger.debug("reanalysis trigger skipped: %s", coord_exc)
         return {
             "status": "new_story",
             "story_id": story.pk,

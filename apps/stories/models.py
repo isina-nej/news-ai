@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
+from apps.core.choices import LifecycleState, TrendState
 from apps.core.models import TimeStampedModel
 
 
@@ -347,3 +351,106 @@ class ItemMinHash(models.Model):
 
     def __str__(self) -> str:
         return f"minhash item={self.source_item_id} perm={self.num_perm} {self.scheme}"
+
+
+class StoryObservationState(TimeStampedModel):
+    """Dynamic observation tracking state per Story.
+
+    Allows adaptive scheduling without scanning the entire Story table.
+    """
+
+    story = models.OneToOneField(Story, on_delete=models.CASCADE, related_name="observation_state")
+    lifecycle_state = models.CharField(
+        max_length=24,
+        choices=LifecycleState.choices,
+        default=LifecycleState.DISCOVERED,
+        db_index=True,
+    )
+    trend_state = models.CharField(
+        max_length=24, choices=TrendState.choices, default=TrendState.NORMAL, db_index=True
+    )
+    active = models.BooleanField(default=True, db_index=True)
+    sample_count = models.PositiveIntegerField(default=0)
+    last_observed_at = models.DateTimeField(null=True, blank=True, default=None)
+    next_observation_at = models.DateTimeField(null=True, blank=True, default=None, db_index=True)
+    observation_interval_seconds = models.PositiveIntegerField(default=300)
+    latest_momentum = models.DecimalField(max_digits=5, decimal_places=4, default=Decimal("0.0000"))
+    latest_confidence = models.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.0000")
+    )
+    last_fast_path_at = models.DateTimeField(null=True, blank=True, default=None)
+    algorithm_version = models.CharField(max_length=32, default="momentum-v1")
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["active", "next_observation_at"]),
+            models.Index(fields=["lifecycle_state", "latest_momentum"]),
+            models.Index(fields=["trend_state", "next_observation_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"obs story={self.story_id} [{self.lifecycle_state}/{self.trend_state}] "
+            f"mom={self.latest_momentum} next={self.next_observation_at}"
+        )
+
+
+class StoryMomentumSnapshot(models.Model):
+    """Append-only time-series record of story velocity, acceleration and propagation."""
+
+    story = models.ForeignKey(Story, on_delete=models.CASCADE, related_name="momentum_snapshots")
+    captured_at = models.DateTimeField(default=timezone.now, db_index=True)
+    lifecycle_state = models.CharField(max_length=24, choices=LifecycleState.choices, db_index=True)
+    trend_state = models.CharField(max_length=24, choices=TrendState.choices, db_index=True)
+    previous_lifecycle_state = models.CharField(max_length=24, blank=True, default="")
+    transition_reason = models.CharField(max_length=128, blank=True, default="")
+    view_velocity = models.FloatField(null=True, blank=True)
+    forward_velocity = models.FloatField(null=True, blank=True)
+    share_velocity = models.FloatField(null=True, blank=True)
+    reaction_velocity = models.FloatField(null=True, blank=True)
+    reply_velocity = models.FloatField(null=True, blank=True)
+    engagement_velocity = models.FloatField(null=True, blank=True)
+    normalized_velocity = models.FloatField(null=True, blank=True)
+    ewma_velocity = models.FloatField(null=True, blank=True)
+    acceleration = models.FloatField(null=True, blank=True)
+    source_arrival_5m = models.PositiveSmallIntegerField(default=0)
+    source_arrival_15m = models.PositiveSmallIntegerField(default=0)
+    source_arrival_30m = models.PositiveSmallIntegerField(default=0)
+    independent_arrival_15m = models.PositiveSmallIntegerField(default=0)
+    independent_arrival_30m = models.PositiveSmallIntegerField(default=0)
+    observed_sources_count = models.PositiveIntegerField(default=0)
+    independent_sources_count = models.PositiveIntegerField(default=0)
+    source_diversity = models.FloatField(null=True, blank=True)
+    platform_diversity = models.FloatField(null=True, blank=True)
+    propagation_breadth = models.FloatField(null=True, blank=True)
+    propagation_depth = models.FloatField(null=True, blank=True)
+    freshness_score = models.FloatField(null=True, blank=True)
+    trend_age_seconds = models.PositiveIntegerField(default=0)
+    growth_consistency = models.FloatField(null=True, blank=True)
+    growth_persistence = models.PositiveSmallIntegerField(default=0)
+    burst_factor = models.FloatField(null=True, blank=True)
+    time_to_double_seconds = models.FloatField(null=True, blank=True)
+    momentum_score = models.DecimalField(max_digits=5, decimal_places=4, default=Decimal("0.0000"))
+    confidence = models.DecimalField(max_digits=5, decimal_places=4, default=Decimal("0.0000"))
+    component_breakdown = models.JSONField(default=dict, blank=True)
+    transition_metrics = models.JSONField(default=dict, blank=True)
+    algorithm_version = models.CharField(max_length=32, default="momentum-v1")
+    idempotency_hash = models.CharField(max_length=64, null=True, blank=True, default=None)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["story", "idempotency_hash"], name="uniq_momentum_story_idemp"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["story", "-captured_at"]),
+            models.Index(fields=["lifecycle_state", "-captured_at"]),
+            models.Index(fields=["trend_state", "-captured_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"momentum story={self.story_id} [{self.lifecycle_state}] "
+            f"score={self.momentum_score} @{self.captured_at:%H:%M:%S}"
+        )

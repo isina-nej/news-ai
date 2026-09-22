@@ -33,6 +33,10 @@ TASKS = {
         schemas.MaterialUpdateResult,
     ),
     "post_draft": ("post_draft", "v1", schemas.PostDraftResult),
+    "story_intelligence": ("story_intelligence", "v2", schemas.StoryIntelligenceResult),
+    "editorial_decision": ("editorial_decision", "v1", schemas.EditorialDecisionResult),
+    "draft_generation": ("draft_generation", "v2", schemas.StructuredDraftResult),
+    "draft_critic": ("draft_critic", "v1", schemas.DraftCriticResult),
 }
 
 SCHEMA_BY_TASK = {task: schema for task, (_, _, schema) in TASKS.items()}  # noqa: F841

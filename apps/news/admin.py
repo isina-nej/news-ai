@@ -2,7 +2,7 @@ import json
 
 from django.contrib import admin
 
-from .models import EngagementSnapshot, SourceItem, SourceItemRevision
+from .models import EngagementSnapshot, MediaAsset, SourceItem, SourceItemRevision
 
 
 def _trunc(value: str, n: int = 80) -> str:
@@ -129,3 +129,20 @@ class SourceItemRevisionAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(MediaAsset)
+class MediaAssetAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "source_item",
+        "media_type",
+        "mime_type",
+        "width",
+        "height",
+        "aspect_ratio",
+        "validation_status",
+        "created_at",
+    )
+    list_filter = ("validation_status", "media_type")
+    readonly_fields = ("created_at", "updated_at")

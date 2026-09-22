@@ -91,6 +91,67 @@ class FakeAIProvider(AIProvider):
                 "body": "Evidence draft body.",
                 "used_sources": [],
             }
+        elif task == "story_intelligence":
+            payload = {
+                "canonical_event": "Key technology event observed",
+                "what_happened": "Major development announced",
+                "who": ["Tech Org"],
+                "where": ["Global"],
+                "when": "Today",
+                "why_it_matters": "Significant implications for the ecosystem",
+                "confirmed_facts": ["Development announced", "Details released"],
+                "uncertain_claims": [],
+                "conflicting_claims": [],
+                "new_information": ["New capabilities revealed"],
+                "missing_information": [],
+                "importance": 0.80,
+                "impact": 0.75,
+                "utility": 0.70,
+                "novelty": 0.85,
+                "urgency": 0.65,
+                "credibility": 0.85,
+                "editorial_risk": 0.10,
+                "recommended_depth": "standard",
+                "recommended_tone": "neutral",
+                "reasoning_summary": "High importance and credibility with grounded evidence.",
+            }
+        elif task == "editorial_decision":
+            payload = {
+                "recommended_action": "PUBLISH_NOW",
+                "confidence": 0.85,
+                "primary_reason": "High news value with strong confirmation.",
+                "risks": [],
+                "missing_confirmation": [],
+                "recommended_wait_minutes": None,
+                "recommended_format": "STANDARD",
+            }
+        elif task == "draft_generation":
+            payload = {
+                "headline_direct": "رونمایی از دستاورد جدید هوش مصنوعی",
+                "headline_breaking": "فوری: پیشرفت تازه در حوزه هوش مصنوعی",
+                "headline_contextual": "تحول تازه در صنعت فناوری و ابزارهای داده",
+                "subheadline": None,
+                "lead": "امروز دستاورد تازه‌ای در حوزه پردازش داده‌ها معرفی شد که کارایی را افزایش می‌دهد.",
+                "body_points": [
+                    "افزایش سرعت پردازش در آزمایش‌های اولیه",
+                    "بهینه‌سازی مصرف انرژی در زیرساخت‌ها",
+                ],
+                "why_it_matters": "این تغییر هزینه‌های محاسباتی را کاهش می‌دهد.",
+                "context": None,
+                "update_line": None,
+                "tone": "neutral",
+                "urgency_label": None,
+            }
+        elif task == "draft_critic":
+            payload = {
+                "is_approved": True,
+                "severity": "pass",
+                "issue_codes": [],
+                "unsupported_claims": [],
+                "headline_exaggeration": False,
+                "persian_quality_score": 0.95,
+                "repair_instructions": "",
+            }
         else:
             payload = {"ok": True}
         if self.mode == "malformed":
@@ -174,6 +235,7 @@ def route_model(task: str) -> str:
         "content_type",
         "language_refinement",
         "basic_extraction",
+        "draft_critic",
     }
     if task in cheap:
         return str(getattr(settings, "AI_MODEL_CHEAP", getattr(settings, "AI_MODEL", "")))

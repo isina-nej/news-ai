@@ -165,3 +165,22 @@
   - Live external services (Telegram Bot, Kurigram MTProto, Twitter/X, Live OpenAI API) require operator credentials in production `.env`.
 - Skipped Live Integrations:
   - External network calls to real Telegram, Twitter, and OpenAI APIs.
+
+---
+
+## Newsroom Intelligence, Trend Detection & Telegram Publishing Platform
+- Status: Completed (all 245+ automated tests green, 10 real-world simulation scenarios verified, Definition of Done test passed)
+- Important Architecture Decisions:
+  - Phase A: Baseline test defects diagnosed and resolved (fixed Telegram HTML URL escaping and serializer sensitive field drops).
+  - Phase B: Real Django models & migrations implemented: `StoryObservationState`, `StoryMomentumSnapshot`, `StoryIntelligenceSnapshot`, `MediaAsset`, `PublicationSelectionRun`. Extended `ScoreRecord`, `DecisionLog`, and `Publication`.
+  - Phase C: Built `ItemMetricSeriesService` and `StoryMomentumService` with multi-point baseline normalization, EWMA smoothing, acceleration, arrival rate windows, and confidence weighting.
+  - Phase D: Implemented deterministic `TrendDetector` with directional hysteresis, `LifecycleStateMachine` (8 states), adaptive observation intervals (60s to 1h), and `StoryReanalysisCoordinator` fast-path dispatch.
+  - Phase E: Separated `NewsworthinessService` from `PublishPriorityService`. Built `ChannelNoveltyService` with information unit diffing. Implemented binding `EditorialPolicyEngine` (PUBLISH_NOW, WATCH, SCHEDULE, SKIP, UPDATE_EXISTING_STORY, REJECT).
+  - Phase F: Authored versioned prompts (`story_intelligence_v2.txt`, `editorial_decision_v1.txt`, `draft_generation_v2.txt`, `draft_critic_v1.txt`). Pydantic schemas registered and validated.
+  - Phase G & H: Built `HeadlineEvaluator` (3 candidates + clickbait filter), `DraftCriticService` (Persian cleanups), `SourceAttributionService`, `BrandingService`, format-aware `TelegramRenderer`, `MediaIngestionService`, `MediaValidationService` (SSRF guard), and `MediaSelectionService` (resolution & aspect ratio scoring).
+  - Phase I & J: Extended `PublisherPort` with photo support, long caption splitting, automatic text fallback on image errors, follow-up publication linking, and decomposed audience learning rewards with clickbait guardrails.
+  - Phase K: Added inspection API endpoints (`/stories/{id}` momentum & intelligence details, `/selection-runs`), Django admin registrations, operational metric counters, and extended `ranking_backtest` CLI options.
+  - Phase L: 10 automated simulation scenarios (`tests/test_simulation_scenarios.py`) and complete Definition of Done integration test (`tests/test_definition_of_done.py`) verified.
+- Known Limitations:
+  - External live Telegram bot, Kurigram MTProto, and OpenAI APIs use fake/stubbed providers in the test environment.
+

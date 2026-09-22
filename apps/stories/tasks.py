@@ -167,3 +167,70 @@ def cluster_source_item_task(
     except Exception as exc:
         countdown = int((2**self.request.retries) * 20 + random.uniform(1, 5))  # noqa: S311
         raise self.retry(exc=exc, countdown=countdown) from exc
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    acks_late=True,
+    queue="celery",
+    autoretry_for=(),
+)
+def recompute_story_momentum_task(
+    self, story_id: int, *, has_material_update: bool = False
+) -> dict[str, Any]:
+    """Thin Celery task to recompute story momentum and evaluate adaptive transitions."""
+    from apps.stories.services.coordinator import StoryReanalysisCoordinator
+
+    try:
+        return StoryReanalysisCoordinator.process_story(
+            story_id=story_id, has_material_update=has_material_update
+        )
+    except Exception as exc:
+        countdown = int((2**self.request.retries) * 15 + random.uniform(1, 5))  # noqa: S311
+        raise self.retry(exc=exc, countdown=countdown) from exc
+
+
+@shared_task(queue="celery")
+def observe_due_stories_task(*, limit: int = 50) -> dict[str, Any]:
+    """Periodic dispatcher: scan active stories due for observation and dispatch recompute."""
+    from django.utils import timezone
+
+    from apps.stories.models import StoryObservationState
+
+    now = timezone.now()
+    due_states = list(
+        StoryObservationState.objects.filter(active=True, next_observation_at__lte=now)
+        .order_by("next_observation_at")
+        .values_list("story_id", flat=True)[:limit]
+    )
+    for story_id in due_states:
+        recompute_story_momentum_task.delay(story_id=story_id)
+
+    return {"dispatched_count": len(due_states)}
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    acks_late=True,
+    queue="celery",
+    autoretry_for=(),
+)
+def immediate_rescore_task(self, story_id: int, *, is_breaking: bool = False) -> dict[str, Any]:
+    """Fast-path ranking: immediate evaluation on breaking news or acceleration spike."""
+    from apps.ranking.services.selection import SelectionService
+    from apps.stories.models import Story
+
+    try:
+        story = Story.objects.get(pk=story_id)
+        eval_res = SelectionService.evaluate_story(story)
+        if eval_res.get("action") == "publish":
+            from apps.publishing.services import _auto_publish_enabled, publish_story
+
+            if _auto_publish_enabled() or is_breaking:
+                publish_story(story.pk, force=is_breaking)
+        return eval_res
+    except Exception as exc:
+        countdown = int((2**self.request.retries) * 15 + random.uniform(1, 5))  # noqa: S311
+        raise self.retry(exc=exc, countdown=countdown) from exc

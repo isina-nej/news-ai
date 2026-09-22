@@ -98,6 +98,31 @@ class Command(BaseCommand):
             twitter_state = "CONFIGURED (presence only)"
         self.stdout.write(f"Twitter/X Ingestion: {twitter_state}, Enabled={twitter_enabled}")
 
+        # 8. Newsroom Intelligence & Momentum Engine
+        from apps.stories.models import StoryObservationState
+
+        active_obs = StoryObservationState.objects.filter(active=True).count()
+        breaking_cnt = StoryObservationState.objects.filter(lifecycle_state="breaking").count()
+        rising_cnt = StoryObservationState.objects.filter(lifecycle_state="rising").count()
+        watching_cnt = StoryObservationState.objects.filter(lifecycle_state="watching").count()
+        self.stdout.write(
+            f"Newsroom Momentum: Active Observed={active_obs} "
+            f"(Breaking={breaking_cnt}, Rising={rising_cnt}, Watching={watching_cnt})"
+        )
+
+        # 9. Media Pipeline
+        from apps.news.models import MediaAsset
+
+        valid_media = MediaAsset.objects.filter(validation_status="valid").count()
+        total_media = MediaAsset.objects.count()
+        photo_enabled = bool(
+            getattr(settings, "FEATURE_FLAGS", {}).get("ENABLE_TELEGRAM_PHOTO", True)
+        )
+        self.stdout.write(
+            f"Media Pipeline: Total={total_media}, Validated={valid_media}, "
+            f"Photo Publishing Enabled={photo_enabled}"
+        )
+
         self.stdout.write(self.style.SUCCESS("=" * 60))
 
     @staticmethod

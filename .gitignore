@@ -8,3 +8,6 @@ media/
 .ruff_cache/
 *.egg-info/
 dist/
+
+# Local agent/session artifacts (never commit)
+noyabot.session

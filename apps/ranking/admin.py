@@ -1,7 +1,13 @@
 from django.contrib import admin
 
 from . import metrics as metric_registry
-from .models import DecisionLog, RankingWeight, ScoreRecord, SourceBaseline
+from .models import (
+    DecisionLog,
+    PublicationSelectionRun,
+    RankingWeight,
+    ScoreRecord,
+    SourceBaseline,
+)
 
 
 @admin.register(RankingWeight)
@@ -16,10 +22,11 @@ class ScoreRecordAdmin(admin.ModelAdmin):
     list_display = (
         "story",
         "algorithm_version",
-        "news_value",
-        "audience_fit",
-        "momentum",
+        "newsworthiness_score",
+        "publish_priority_score",
         "final_score",
+        "news_value",
+        "momentum",
         "created_at",
     )
     list_filter = ("algorithm_version",)
@@ -75,3 +82,9 @@ class DecisionLogAdmin(admin.ModelAdmin):
         "created_at",
     )
     exclude = ("feature_snapshot", "score_breakdown", "action_detail")
+
+
+@admin.register(PublicationSelectionRun)
+class PublicationSelectionRunAdmin(admin.ModelAdmin):
+    list_display = ("id", "run_at", "algorithm_version", "policy_version", "selected_count")
+    readonly_fields = ("run_at",)

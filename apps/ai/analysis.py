@@ -8,6 +8,7 @@ from apps.ai.models import (
     AI_VERSION,
     MaterialUpdateDecision,
     StoryConflict,
+    StoryIntelligenceSnapshot,
     StoryNewsValue,
     TopicClassification,
 )
@@ -173,6 +174,7 @@ def judge_ambiguous_candidate(*, source_item, candidate_story, decision, provide
 
 def detect_material_update(*, story, source_item, provider=None) -> dict:
     from apps.ai.evidence import story_evidence
+    from apps.ai.facts import FactDiffService
 
     story_json = _evidence_json(story_evidence(story))
     item_json = _evidence_json(
@@ -194,6 +196,17 @@ def detect_material_update(*, story, source_item, provider=None) -> dict:
         provider=provider,
     )
     payload = result["payload"]
+
+    # Diff facts against latest intelligence snapshot if available
+    diff: dict = {}
+    prior_snap = story.intelligence_snapshots.order_by("-created_at").first()
+    prior_facts = prior_snap.confirmed_facts if prior_snap else []
+    # If item has sentences or facts, diff them
+    curr_text = source_item.normalized_text or source_item.raw_text or source_item.title
+    curr_facts = [s.strip() for s in curr_text.split(".") if len(s.strip()) > 15][:5]
+    if curr_facts:
+        diff = FactDiffService.diff_facts(prior_facts=prior_facts, current_facts=curr_facts)
+
     MaterialUpdateDecision.objects.create(
         story=story,
         source_item=source_item,
@@ -204,8 +217,104 @@ def detect_material_update(*, story, source_item, provider=None) -> dict:
         prompt_version=result.get("prompt_version", "v1"),
         algorithm_version=AI_VERSION,
         reason_codes=payload.get("reason_codes", []),
+        information_unit_diff=diff,
     )
     return result
+
+
+def analyze_story_intelligence(story, *, provider=None) -> dict:
+    """Run comprehensive story intelligence analysis and persist versioned snapshot."""
+    from apps.ai.evidence import story_evidence
+
+    evidence = story_evidence(story)
+    result = run_structured_task(
+        task="story_intelligence",
+        evidence=evidence,
+        prompt_replacements={"__EVIDENCE__": _evidence_json(evidence)},
+        provider=provider,
+    )
+    payload = result["payload"]
+
+    snap = StoryIntelligenceSnapshot.objects.create(
+        story=story,
+        evidence_hash=result.get("input_hash", ""),
+        canonical_event=payload.get("canonical_event", "")[:500],
+        what_happened=payload.get("what_happened", "")[:2000],
+        who=payload.get("who", []),
+        where=payload.get("where", []),
+        when=payload.get("when", "")[:255],
+        why_it_matters=payload.get("why_it_matters", "")[:1500],
+        confirmed_facts=payload.get("confirmed_facts", []),
+        uncertain_claims=payload.get("uncertain_claims", []),
+        conflicting_claims=payload.get("conflicting_claims", []),
+        new_information=payload.get("new_information", []),
+        missing_information=payload.get("missing_information", []),
+        importance=to_decimal(payload.get("importance", 0.5)),
+        impact=to_decimal(payload.get("impact", 0.5)),
+        utility=to_decimal(payload.get("utility", 0.5)),
+        novelty=to_decimal(payload.get("novelty", 0.5)),
+        urgency=to_decimal(payload.get("urgency", 0.5)),
+        credibility=to_decimal(payload.get("credibility", 0.5)),
+        editorial_risk=to_decimal(payload.get("editorial_risk", 0.0)),
+        recommended_depth=payload.get("recommended_depth", "standard")[:32],
+        recommended_tone=payload.get("recommended_tone", "neutral")[:32],
+        reasoning_summary=payload.get("reasoning_summary", "")[:500],
+        provider=result.get("provider", provider.name if provider else "fake"),
+        model=result.get("model", ""),
+        prompt_version=result.get("prompt_version", "v2"),
+        task_version="intel-v2",
+    )
+
+    # Synchronize StoryNewsValue
+    StoryNewsValue.objects.update_or_create(
+        story=story,
+        defaults={
+            "importance": to_decimal(payload.get("importance", 0.5)),
+            "utility": to_decimal(payload.get("utility", 0.5)),
+            "impact": to_decimal(payload.get("impact", 0.5)),
+            "novelty": to_decimal(payload.get("novelty", 0.5)),
+            "urgency": to_decimal(payload.get("urgency", 0.5)),
+            "credibility": to_decimal(payload.get("credibility", 0.5)),
+            "component_detail": payload,
+            "provider": result.get("provider", "fake"),
+            "model": result.get("model", ""),
+            "prompt_version": "v2",
+            "algorithm_version": AI_VERSION,
+        },
+    )
+
+    # Synchronize StoryConflict
+    conflicts = payload.get("conflicting_claims", [])
+    if conflicts:
+        StoryConflict.objects.update_or_create(
+            story=story,
+            defaults={
+                "has_conflict": True,
+                "summary": "; ".join(conflicts)[:1000],
+                "confidence": to_decimal(0.85),
+                "reason_codes": ["ai_conflict_detected"],
+                "provider": result.get("provider", "fake"),
+                "model": result.get("model", ""),
+                "prompt_version": "v2",
+                "algorithm_version": AI_VERSION,
+            },
+        )
+
+    result["snapshot_id"] = snap.pk
+    return result
+
+
+def evaluate_editorial_decision(story, *, provider=None) -> dict:
+    """Run semantic editorial risk and decision recommendation task."""
+    from apps.ai.evidence import story_evidence
+
+    evidence = story_evidence(story)
+    return run_structured_task(
+        task="editorial_decision",
+        evidence=evidence,
+        prompt_replacements={"__EVIDENCE__": _evidence_json(evidence)},
+        provider=provider,
+    )
 
 
 def _allowed_topic_slugs() -> str:

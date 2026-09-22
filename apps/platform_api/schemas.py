@@ -53,10 +53,33 @@ class StoryOut(Schema):
     primary_item_id: int | None = None
 
 
+class ObservationStateOut(Schema):
+    lifecycle_state: str = "discovered"
+    trend_state: str = "normal"
+    latest_momentum: float = 0.0
+    latest_confidence: float = 0.0
+    active: bool = True
+    sample_count: int = 0
+    observation_interval_seconds: int = 300
+    next_observation_at: str | None = None
+
+
 class StoryDetailOut(StoryOut):
     members: list[StoryMemberOut] = Field(default_factory=list)
     scores: list[ScoreOut] = Field(default_factory=list)
     publications: list[dict] = Field(default_factory=list)
+    observation: ObservationStateOut | None = None
+    latest_momentum: dict | None = None
+    latest_intelligence: dict | None = None
+
+
+class SelectionRunOut(Schema):
+    id: int
+    run_at: str
+    algorithm_version: str
+    policy_version: str
+    selected_count: int
+    candidates_count: int
 
 
 class PublicationOut(Schema):

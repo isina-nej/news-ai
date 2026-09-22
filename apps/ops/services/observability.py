@@ -53,6 +53,12 @@ class MetricsRegistry:
         pub_success = recent_pubs.filter(status=PublicationStatus.PUBLISHED).count()
         pub_failure = recent_pubs.filter(status=PublicationStatus.FAILED).count()
 
+        from apps.stories.models import StoryObservationState
+
+        watched_count = StoryObservationState.objects.filter(lifecycle_state="watching").count()
+        rising_count = StoryObservationState.objects.filter(lifecycle_state="rising").count()
+        breaking_count = StoryObservationState.objects.filter(lifecycle_state="breaking").count()
+
         return {
             "fetch_success_rate": round(fetch_success_rate, 4),
             "items_created_24h": items_created,
@@ -60,6 +66,9 @@ class MetricsRegistry:
             "ambiguous_rate_24h": round(ambiguous_rate, 4),
             "publications_published_24h": pub_success,
             "publications_failed_24h": pub_failure,
+            "stories_watched": watched_count,
+            "stories_rising": rising_count,
+            "stories_breaking": breaking_count,
             "in_memory_counters": dict(self._counters),
             "in_memory_gauges": dict(self._gauges),
         }

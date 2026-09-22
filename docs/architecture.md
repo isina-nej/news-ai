@@ -1,66 +1,83 @@
-# Architecture (rev 5 — Phase 3 Telegram Ingestion)
+# Architecture: Real-Time Newsroom Intelligence & Professional Telegram Publishing
 
-Dependency: `External → Adapter → Service → Domain/Core`.
+Dependency: `External Platform → Adapter → Application Service → Domain / Core`.
 
-## Sources (`apps/sources`)
+## End-to-End System Flow
 
-`Source` profile: name, platform, url/identifier, enabled, priority, reliability, category, language, fetch_interval, tags, last_success_at, last_failure_at, consecutive_failures, trust_score, `platform_external_id` (stable peer id cache), `cooldown_until` (FloodWait backoff).
-`FetchRun`: audit record per fetch execution (source FK, started_at, finished_at, status, http_status, fetched_count, created_count, `updated_count`, duplicate_count, rejected_count, error_type, error_message, duration_ms, correlation_id).
-`SourceCheckpoint(source, adapter)`: persistent cursor (`last_external_id`, `last_published_at`, `state.last_message_id`); advances only after persistence.
-`EngagementTrackingState`: lean per-item milestone scheduler (`next_due_at`, `next_target_age_seconds`, `active`).
-
-### Ingestion Pipeline (Phase 2)
 ```text
-Source (Beat / manual dispatch)
+SOURCE STREAM (RSS, RSSHub, Web HTML, Telegram, Twitter/X)
   ↓
-Celery Task (fetch_source_task) with bounded exponential backoff & jitter
+INGEST & PERSIST (Same-source dedupe, cross-source preserved, revisions, milestones)
   ↓
-SourceFetchService (Redis distributed lock: fetch:source:{id})
+STORY CLUSTER (URL evidence, MinHash, Qdrant vectors, centroid representation)
   ↓
-Adapter Registry (resolves by platform / adapter_type)
-  ├── RSSSourceAdapter (feedparser, UTC datetime parsing, enclosures)
-  ├── RSSHubAdapter (route construction, env ACCESS_KEY, self-host allowlist)
-  ├── HTMLSourceAdapter (SafeHttpClient, trafilatura article extraction, metadata)
-  └── TelegramSourceAdapter (Kurigram user session; see docs/telegram-ingestion.md)
+MOMENTUM OBSERVER (ItemMetricSeriesService, StoryMomentumService)
+  ├── Velocity (source-relative, normalized, EWMA-smoothed)
+  ├── Acceleration (change in normalized velocity over time)
+  ├── Arrival Rates (5m, 15m, 30m windows)
+  └── Propagation Breadth (saturating independent curve)
   ↓
-SafeHttpClient (connection pool, timeouts, redirects, size guard, SSRF validation)
+TREND & LIFECYCLE ENGINE (TrendDetector, LifecycleStateMachine)
+  ├── States: DISCOVERED -> WATCHING -> RISING -> BREAKING -> PEAKING -> COOLING -> STALE -> ARCHIVED
+  ├── Early Signal Detection (breakout candidates before peak)
+  ├── Adaptive Observation Intervals (60s to 1h polling schedules)
+  └── Fast-Path Rescoring (immediate Celery ranking on acceleration/breaking spikes)
   ↓
-FetchedItem DTOs (pure Python, ORM-agnostic)
+AI STORY INTELLIGENCE (StoryIntelligenceSnapshot)
+  ├── Fact extraction & Information Units
+  ├── Conflicting claims & uncertainty preservation
+  └── Semantic evaluations (importance, impact, novelty, credibility, editorial risk)
   ↓
-CanonicalURLService (scheme/host casing, fragment strip, tracking params strip, sort query, url_hash)
+NEWSWORTHINESS SCORE (NewsworthinessService: intrinsic value 0..1)
   ↓
-NormalizationService (raw_text untouched, normalized_text v1, Unicode NFKC, Persian/Arabic safe, whitespace)
+EDITORIAL POLICY ENGINE (EditorialPolicyEngine)
+  ├── Channel Novelty (NEW_STORY, MATERIAL_UPDATE, CORRECTION, MINOR_UPDATE, REPEAT)
+  ├── Fact-Level Diff (FactDiffService: new, changed, repeated, contradicted)
+  ├── Penalties (Topic saturation, lexical repetition, credibility risk)
+  └── Binding Decisions:
+        ├── PUBLISH_NOW (breaking override or priority cleared)
+        ├── WATCH (promising trend awaiting independent confirmation)
+        ├── SCHEDULE (queued for next available slot subject to spacing)
+        ├── UPDATE_EXISTING_STORY (material update / correction)
+        ├── SKIP (below threshold or duplicate content)
+        └── REJECT (failed credibility gate / low-trust rumors)
   ↓
-IngestionPersistenceService (same-source exact dedupe: external_id -> url_hash -> content_hash; cross-source preserved; payload size guard)
+MEDIA PIPELINE (MediaAsset, MediaValidationService, MediaSelectionService)
+  ├── SSRF-safe validation & MIME/dimension checks
+  └── High-res 16:9 scoring with thumbnail & broken image penalties
   ↓
-SourceItem & Source health update (last_success_at, consecutive_failures reset/increment)
+STRUCTURED DRAFT GENERATION (draft_generation_v2)
+  ├── 3 Headline Candidates (DIRECT, BREAKING, CONTEXTUAL)
+  ├── HeadlineEvaluator (clickbait filter, format alignment)
+  └── DraftCriticService (unsupported claim check, Persian cleanup, filler removal)
+  ↓
+TELEGRAM-NATIVE RENDERER (TelegramRenderer)
+  ├── Strict HTML escaping & whitelist tags (<b>, <i>, <u>, <blockquote>, <a>)
+  ├── Format variants (BREAKING, STANDARD, QUICK_UPDATE, DEVELOPING, ANALYSIS)
+  ├── Semantic shortening (preserves headline, lead, source, signature before truncation)
+  └── Character limits (message <= 4096, caption <= 1024)
+  ↓
+IDEMPOTENT PUBLISHER (TelegramBotPublisher, FakePublisher)
+  ├── sendPhoto + caption delivery
+  ├── Long caption splitting (photo + short caption followed by full message)
+  ├── Automatic text fallback on image errors
+  └── Telegram file_id caching for media reuse
+  ↓
+POST-PUBLICATION MEASUREMENT (PublicationEngagementSnapshot)
+  ↓
+AUDIENCE LEARNING & REWARD (AudienceLearningService, normalized_reward)
+  ├── Reward decomposition (views, forwards, reactions, replies)
+  ├── Quality guardrails (low credibility caps reward to prevent clickbait hacking)
+  └── Bayesian-smoothed EWMA feature preferences (topic, style, timing)
 ```
 
-## News (`apps/news`)
+## Subsystems
 
-`SourceItem` never deleted cross-source. Dedupe for same source: `external_id` -> `url_hash` -> `content_hash`.
-Fields: source FK, platform, external_id, url, url_hash, title, raw_text, normalized_text, `raw_content_hash`, `content_hash` (normalized SHA-256), media, language, content_type, topic/subtopic (cross-field validated), published_at, `source_updated_at` (platform edit time), `source_deleted_at` (platform-confirmed only), collected_at, first_seen_at, updated_at, story FK (current assignment, must match single `is_current` membership).
-`SourceItemRevision`: immutable edit history (`revision_number`, `source_updated_at`, `observed_at`, material snapshot + `change_metadata`).
-`EngagementSnapshot`: item FK, views, forwards, shares, reactions, replies, saves nullable (unknown vs zero preserved), `target_age_seconds` milestone (`UNIQUE(source_item, target_age_seconds)`), captured_at, post_age_seconds.
-
-## Stories (`apps/stories`)
-
-`Story`: canonical title/summary, topic/subtopic (validated), first_published_at, `independent_source_count` (denormalized), `latest_source_update_at` service-controlled (no auto_now), updated_at for DB churn.
-`StoryMembership`: each SourceItem has at most one `is_current` assignment (MySQL-safe `current_slot` unique). Multi-membership allowed for candidates. Fields: similarity_score, match_method, is_primary, is_current, current_slot, detail.
-
-## Ranking (`apps/ranking` + `apps/ops`)
-
-Raw engagement never ranked directly. `SourceBaselineService`: baseline per source×platform×topic×subtopic×content-type×age-bucket. Median/percentiles, never plain mean. Metrics from `apps/ranking/metrics.py` registry (raw + derived: `*_velocity`, `engagement_acceleration`, `relative_performance`). Baselines validated against registry + topic/subtopic consistency; uniqueness via `context_hash`.
-Story features, 3 groups: NewsValue, AudienceFit, Momentum.
-`ScoreRecord`: story FK, algorithm_version, breakdown JSON (every numeric leaf 0..1 finite), final. DB `CheckConstraint`s on 0..1.
-`DecisionLog`: story FK, publication FK, decision_type (WHAT/WHEN/HOW), feature_snapshot, score_breakdown, predicted_reward, selected_action, is_exploration, exploration_probability, actual_reward, reward_calculated_at.
-
-## Publishing (`apps/publishing`)
-
-WHAT/WHEN/HOW independent. `Publication`: story FK, channel, status machine (DRAFT→PUBLISHED, FAILED retry), `content_hash` fingerprint of final payload (headline+content+style fields, always recomputed, NULL only for empty drafts under UNIQUE), scheduled_at, published_at, external_message_id, idempotency_key. `transition()` enforces that fingerprint fields are not mutated without saving first. `PublicationEngagementSnapshot`: separate table for own-channel feedback, no GenericForeignKey.
-
-## Security
-
-- SSRF protection on all web fetches (`apps/sources/adapters/ssrf.py`): loopback, private, link-local, cloud metadata blocked, redirects re-validated.
-- Response size limits (5MB HTTP, 64KB DB raw_payload).
-- Telegram sessions env-only; secrets never logged or committed. Dedicated `telegram` Celery queue (`-c 1` per account), long-lived loop-bound Kurigram client, FloodWait -> `RateLimitError` + `Source.cooldown_until`. See `docs/telegram-ingestion.md`.
+1. **`apps/sources`**: Acquisition adapters (RSS, RSSHub, Web, Telegram Kurigram, Twitter/X), connection pools, distributed locks, SSRF protection.
+2. **`apps/news`**: Canonical source item store, exact dedupe, revisions, milestones, `MediaAsset` storage and validation.
+3. **`apps/stories`**: Story event clustering, MinHash/vector centroids, `StoryObservationState`, `StoryMomentumSnapshot`, `TrendDetector`, `LifecycleStateMachine`, `StoryReanalysisCoordinator`.
+4. **`apps/ai`**: Provider port (`FakeAIProvider`, `OpenAICompatibleProvider`), versioned prompt registry (`apps/ai/prompts/`), Pydantic schemas, `StoryIntelligenceSnapshot`, fact diffing.
+5. **`apps/ranking`**: Robust source baselines, `NewsworthinessService`, `PublishPriorityService`, `EditorialPolicyEngine`, `ChannelNoveltyService`, `PublicationSelectionRun`, `ScoreRecord`, `DecisionLog`.
+6. **`apps/publishing`**: `HeadlineEvaluator`, `DraftCriticService`, `SourceAttributionService`, `BrandingService`, `TelegramRenderer`, `PublisherPort`, `TelegramBotPublisher`, reward decomposition.
+7. **`apps/ops`**: Taxonomy, dynamic settings, feature flags, `AudienceLearningService`, scheduler tasks, structured logging.
+8. **`apps/platform_api`**: Django Ninja operations API at `/api/v1/` with story inspection (lifecycle, momentum, intelligence, media) and selection runs.

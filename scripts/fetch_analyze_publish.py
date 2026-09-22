@@ -1,35 +1,53 @@
 #!/usr/bin/env python3
 """Fetch last 20 messages from each channel, analyze, rank, and publish best."""
-import os, sys, time
+
+import os
+import time
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 
 import django
+
 django.setup()
 
-from django.utils import timezone
+
+import httpx
+
+from apps.ai.analysis import (
+    classify_topic,
+    combined_credibility,
+    detect_conflicts,
+    extract_news_value,
+)
 from apps.core.choices import Platform
-from apps.sources.models import Source
-from apps.sources.services.fetcher import source_fetch_service
-from apps.stories.tasks import cluster_source_item_task
-from apps.ranking.services.scoring import StoryScoringService
-from apps.stories.models import Story, StoryMembership
 from apps.news.models import SourceItem
 from apps.publishing.telegram import render_post
-from apps.ai.analysis import extract_news_value, classify_topic, detect_conflicts, combined_credibility
-import httpx, json
+from apps.ranking.services.scoring import StoryScoringService
+from apps.sources.models import Source
+from apps.sources.services.fetcher import source_fetch_service
+from apps.stories.models import Story
+from apps.stories.services.clustering import story_clustering_service
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
 
+
 def fetch_all(limit=20):
     """Fetch last N messages from each active Telegram channel."""
     channels = Source.objects.filter(
-        platform=Platform.TELEGRAM, enabled=True,
+        platform=Platform.TELEGRAM,
+        enabled=True,
         identifier__in=[
-            '@smartainewss','@ainews_fa','@NabzeAINews','@techhub_x',
-            '@vigiatonet','@MatinSenPaii','@iaghapour','@AISpecialists_ir',
-            '@technews_fa'
-        ]
+            "@smartainewss",
+            "@ainews_fa",
+            "@NabzeAINews",
+            "@techhub_x",
+            "@vigiatonet",
+            "@MatinSenPaii",
+            "@iaghapour",
+            "@AISpecialists_ir",
+            "@technews_fa",
+        ],
     )
     total_fetched = 0
     for src in channels:
@@ -43,18 +61,20 @@ def fetch_all(limit=20):
             print(f"error: {str(e)[:60]}")
     return total_fetched
 
+
 def cluster_new():
     """Cluster all unassigned source items."""
     unassigned = SourceItem.objects.filter(story__isnull=True, status="collected")
     count = 0
     for item in unassigned[:200]:
         try:
-            result = cluster_source_item(item.pk)
+            result = story_clustering_service.cluster_item(item.pk)
             if result.get("status") == "new_story":
                 count += 1
         except Exception:
             pass
     return count
+
 
 def analyze_and_rank():
     """Analyze stories with AI and rank them."""
@@ -70,27 +90,32 @@ def analyze_and_rank():
             # Get score
             result = StoryScoringService.score_story(s)
             final = float(result.get("final_score", 0.5))
-            scored.append({
-                "story": s,
-                "credibility": float(cred) if cred else 0.5,
-                "final_score": final,
-                "title": s.canonical_title,
-            })
-        except Exception as e:
+            scored.append(
+                {
+                    "story": s,
+                    "credibility": float(cred) if cred else 0.5,
+                    "final_score": final,
+                    "title": s.canonical_title,
+                }
+            )
+        except Exception:
             # Score without AI
             try:
                 result = StoryScoringService.score_story(s)
                 final = float(result.get("final_score", 0.5))
-                scored.append({
-                    "story": s,
-                    "credibility": 0.5,
-                    "final_score": final,
-                    "title": s.canonical_title,
-                })
+                scored.append(
+                    {
+                        "story": s,
+                        "credibility": 0.5,
+                        "final_score": final,
+                        "title": s.canonical_title,
+                    }
+                )
             except Exception:
                 pass
     scored.sort(key=lambda x: x["final_score"], reverse=True)
     return scored
+
 
 def publish_to_telegram(story_data):
     """Publish a story to the Telegram channel."""
@@ -108,9 +133,11 @@ def publish_to_telegram(story_data):
             body_parts.append(text)
     body = "\n\n".join(body_parts) if body_parts else title
 
-    rendered = render_post(headline=title, body=body, source_urls=[
-        item.canonical_url for item in items if item.canonical_url
-    ][:3])
+    rendered = render_post(
+        headline=title,
+        body=body,
+        source_urls=[item.canonical_url for item in items if item.canonical_url][:3],
+    )
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
@@ -134,6 +161,7 @@ def publish_to_telegram(story_data):
     except Exception as e:
         print(f"    [ERROR] {str(e)[:80]}")
         return False
+
 
 def main():
     print("=" * 60)
@@ -167,6 +195,7 @@ def main():
     print(f"\n{'=' * 60}")
     print(f"Done! Published {published} stories to Telegram channel")
     print(f"{'=' * 60}")
+
 
 if __name__ == "__main__":
     main()
